@@ -252,7 +252,6 @@ module.exports.AScene = registerElement('a-scene', {
     enterVR: {
       value: function () {
         var self = this;
-        var vrDisplay;
         var vrManager = self.renderer.vr;
 
         // Don't enter VR if already in VR.
@@ -260,28 +259,25 @@ module.exports.AScene = registerElement('a-scene', {
 
         // Has VR.
         if (this.checkHeadsetConnected() || this.isMobile) {
-          vrDisplay = utils.device.getVRDisplay();
           vrManager.enabled = true;
-          vrManager.setDevice(vrDisplay);
 
           if (this.hasWebXR) {
             // XR API.
             if (this.xrSession) {
               this.xrSession.removeEventListener('end', this.exitVRBound);
             }
-            vrDisplay.requestSession({
-              immersive: true,
-              exclusive: true
-            }).then(function requestSuccess (xrSession) {
+            navigator.xr.requestSession('immersive-vr').then(function requestSuccess (xrSession) {
               self.xrSession = xrSession;
               vrManager.setSession(xrSession);
               xrSession.addEventListener('end', self.exitVRBound);
-              xrSession.requestFrameOfReference('stage').then(function (frameOfReference) {
-                self.frameOfReference = frameOfReference;
-              });
+              // xrSession.requestFrameOfReference('floor-level').then(function (frameOfReference) {
+              //   self.frameOfReference = frameOfReference;
+              // });
               enterVRSuccess();
             });
           } else {
+            var vrDisplay = utils.device.getVRDisplay();
+            vrManager.setDevice(vrDisplay);
             var rendererSystem = this.getAttribute('renderer');
             var presentationAttributes = {
               highRefreshRate: rendererSystem.highRefreshRate,
@@ -517,10 +513,9 @@ module.exports.AScene = registerElement('a-scene', {
         var embedded;
         var isVRPresenting;
         var size;
-        var vrDevice;
 
-        vrDevice = this.renderer.vr.getDevice();
-        isVRPresenting = this.renderer.vr.enabled && vrDevice && vrDevice.isPresenting;
+        var isPresenting = this.renderer.vr.isPresenting();
+        isVRPresenting = this.renderer.vr.enabled && isPresenting;
 
         // Do not update renderer, if a camera or a canvas have not been injected.
         // In VR mode, three handles canvas resize based on the dimensions returned by
@@ -593,7 +588,8 @@ module.exports.AScene = registerElement('a-scene', {
               antialias: rendererConfig.antialias,
               premultipliedAlpha: true,
               preserveDrawingBuffer: false,
-              powerPreference: 'default'
+              powerPreference: 'default',
+              xrCompatible: true
             });
 
             if (context) {
