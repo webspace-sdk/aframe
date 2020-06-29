@@ -140,7 +140,11 @@ var proto = Object.create(ANode.prototype, {
 
       // Remove existing object of the type.
       oldObj = this.getObject3D(type);
-      if (oldObj) { this.object3D.remove(oldObj); }
+      if (oldObj) { 
+        this.object3D.remove(oldObj);
+        // https://github.com/aframevr/aframe/issues/4637
+        oldObj.el = null;
+      }
 
       // Set references to A-Frame entity.
       obj.el = this;
