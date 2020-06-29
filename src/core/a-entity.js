@@ -169,6 +169,8 @@ var proto = Object.create(ANode.prototype, {
       }
       this.object3D.remove(obj);
       delete this.object3DMap[type];
+      // https://github.com/aframevr/aframe/issues/4637
+      obj.el = null;
       this.emit('object3dremove', {type: type});
     }
   },
