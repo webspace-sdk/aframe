@@ -39,8 +39,6 @@ module.exports.Component = registerComponent('look-controls', {
     this.pointerLocked = false;
     this.setupMouseControls();
     this.bindMethods();
-    this.el.object3D.matrixAutoUpdate = false;
-    this.el.object3D.updateMatrix();
 
     this.setupMagicWindowControls();
 
@@ -220,15 +218,13 @@ module.exports.Component = registerComponent('look-controls', {
         // With WebXR THREE applies headset pose to the object3D matrixWorld internally.
         // Reflect values back on position, rotation, scale for getAttribute to return the expected values.
         if (sceneEl.hasWebXR) {
-          pose = sceneEl.renderer.vr.getCameraPose();
+          pose = sceneEl.renderer.xr.getCameraPose();
           if (pose) {
             poseMatrix.elements = pose.transform.matrix;
             poseMatrix.decompose(object3D.position, object3D.rotation, object3D.scale);
           }
         }
         return;
-      } else {
-        object3D.updateMatrix();
       }
 
       this.updateMagicWindowOrientation();
@@ -298,7 +294,7 @@ module.exports.Component = registerComponent('look-controls', {
    */
   onMouseDown: function (evt) {
     var sceneEl = this.el.sceneEl;
-    if (!this.data.enabled || sceneEl.is('vr-mode')) { return; }
+    if (!this.data.enabled || (sceneEl.is('vr-mode') && sceneEl.checkHeadsetConnected())) { return; }
     // Handle only primary button.
     if (evt.button !== 0) { return; }
 
@@ -386,11 +382,15 @@ module.exports.Component = registerComponent('look-controls', {
    * Save pose.
    */
   onEnterVR: function () {
-    if (!this.el.sceneEl.checkHeadsetConnected()) { return; }
+    var sceneEl = this.el.sceneEl;
+    if (!sceneEl.checkHeadsetConnected()) { return; }
     this.saveCameraPose();
     this.el.object3D.position.set(0, 0, 0);
     this.el.object3D.rotation.set(0, 0, 0);
-    this.el.object3D.updateMatrix();
+    if (sceneEl.hasWebXR) {
+      this.el.object3D.matrixAutoUpdate = false;
+      this.el.object3D.updateMatrix();
+    }
   },
 
   /**
@@ -400,6 +400,7 @@ module.exports.Component = registerComponent('look-controls', {
     if (!this.el.sceneEl.checkHeadsetConnected()) { return; }
     this.restoreCameraPose();
     this.previousHMDPosition.set(0, 0, 0);
+    this.el.object3D.matrixAutoUpdate = true;
   },
 
   /**

@@ -10,6 +10,7 @@ require('./light');
 require('./line');
 require('./link');
 require('./look-controls');
+require('./magicleap-controls');
 require('./material');
 require('./obj-model');
 require('./position');

@@ -11,7 +11,6 @@ var utils = require('../../utils/');
 var AEntity = require('../a-entity');
 var ANode = require('../a-node');
 var initPostMessageAPI = require('./postMessage');
-var shaders = require('../shader').shaders;
 
 var bind = utils.bind;
 var isIOS = utils.device.isIOS();
@@ -60,6 +59,13 @@ module.exports.AScene = registerElement('a-scene', {
         this.hasLoaded = false;
         this.isPlaying = false;
         this.originalHTML = this.innerHTML;
+
+        // Default components.
+        this.setAttribute('inspector', '');
+        this.setAttribute('keyboard-shortcuts', '');
+        this.setAttribute('screenshot', '');
+        this.setAttribute('vr-mode-ui', '');
+        this.setAttribute('device-orientation-permission-ui', '');
       }
     },
 
@@ -262,7 +268,7 @@ module.exports.AScene = registerElement('a-scene', {
       value: function (useAR) {
         var self = this;
         var vrDisplay;
-        var vrManager = self.renderer.vr;
+        var vrManager = self.renderer.xr;
 
         // Don't enter VR if already in VR.
         if (this.is('vr-mode')) { return Promise.resolve('Already in VR.'); }
@@ -299,8 +305,7 @@ module.exports.AScene = registerElement('a-scene', {
             var rendererSystem = this.getAttribute('renderer');
             var presentationAttributes = {
               highRefreshRate: rendererSystem.highRefreshRate,
-              foveationLevel: rendererSystem.foveationLevel,
-              multiview: vrManager.multiview
+              foveationLevel: rendererSystem.foveationLevel
             };
 
             return vrDisplay.requestPresent([{
@@ -368,7 +373,7 @@ module.exports.AScene = registerElement('a-scene', {
       value: function () {
         var self = this;
         var vrDisplay;
-        var vrManager = this.renderer.vr;
+        var vrManager = this.renderer.xr;
 
         // Don't exit VR if not in VR.
         if (!this.is('vr-mode')) { return Promise.resolve('Not in VR.'); }
@@ -377,7 +382,6 @@ module.exports.AScene = registerElement('a-scene', {
         if (this.checkHeadsetConnected() || this.isMobile) {
           vrManager.enabled = false;
           vrDisplay = utils.device.getVRDisplay();
-
           if (this.hasWebXR) {
             this.xrSession.removeEventListener('end', this.exitVRBound);
             // Capture promise to avoid errors.
@@ -548,8 +552,8 @@ module.exports.AScene = registerElement('a-scene', {
         var isVRPresenting;
         var size;
 
-        var isPresenting = this.renderer.vr.isPresenting();
-        isVRPresenting = this.renderer.vr.enabled && isPresenting;
+        var isPresenting = this.renderer.xr.isPresenting();
+        isVRPresenting = this.renderer.xr.enabled && isPresenting;
 
         // Do not update renderer, if a camera or a canvas have not been injected.
         // In VR mode, three handles canvas resize based on the dimensions returned by
@@ -575,6 +579,7 @@ module.exports.AScene = registerElement('a-scene', {
 
     setupRenderer: {
       value: function () {
+        var self = this;
         var renderer;
         var rendererAttr;
         var rendererAttrString;
@@ -584,19 +589,14 @@ module.exports.AScene = registerElement('a-scene', {
           alpha: true,
           antialias: !isMobile,
           canvas: this.canvas,
-          logarithmicDepthBuffer: false,
-          preuploadVideos: /Oculus/.test(navigator.userAgent),
-          forceWebVR: false
+          logarithmicDepthBuffer: false
         };
 
         this.maxCanvasSize = {height: 1920, width: 1920};
 
-        var enableMultiview = false;
         if (this.hasAttribute('renderer')) {
           rendererAttrString = this.getAttribute('renderer');
           rendererAttr = utils.styleParser.parse(rendererAttrString);
-
-          enableMultiview = rendererAttr.multiview === 'true';
 
           if (rendererAttr.precision) {
             rendererConfig.precision = rendererAttr.precision + 'p';
@@ -614,94 +614,6 @@ module.exports.AScene = registerElement('a-scene', {
             rendererConfig.alpha = rendererAttr.alpha === 'true';
           }
 
-          // HACK: We need force WebVR in Hubs with the window.forceWebVR flag for the time being, until Hubs implements WebXR support.
-          if (window.forceWebVR === true) {
-            rendererConfig.forceWebVR = window.forceWebVR;
-          }
-
-          if (rendererAttr.webgl2 && rendererAttr.webgl2 === 'true') {
-            const context = this.canvas.getContext('webgl2', {
-              alpha: rendererConfig.alpha,
-              depth: true,
-              stencil: true,
-              antialias: rendererConfig.antialias,
-              premultipliedAlpha: true,
-              preserveDrawingBuffer: false,
-              powerPreference: 'default',
-              xrCompatible: true
-            });
-
-            if (context) {
-              console.log('Using WebGL 2.0 context.');
-              rendererConfig.context = context;
-
-              const multiviewSupported = (!!context.getExtension('WEBGL_multiview') || !!context.getExtension('OVR_multiview'));
-              if (enableMultiview && !multiviewSupported) {
-                console.warn('Multiview enabled but WEBGL/OVR_multiview extension browser support not available');
-                enableMultiview = false;
-              }
-
-              var versionRegex = /^\s*#version\s+300\s+es\s*\n/;
-
-              for (var shaderName in shaders) {
-                var shader = shaders[shaderName];
-
-                var shaderProto = shader.Shader.prototype;
-
-                if (!shaderProto.raw) {
-                  continue;
-                }
-
-                var vertexShader = shaderProto.vertexShader;
-                var fragmentShader = shaderProto.fragmentShader;
-
-                var isGLSL3ShaderMaterial = false;
-
-                if (vertexShader.match(versionRegex) !== null && fragmentShader.match(versionRegex) !== null) {
-                  isGLSL3ShaderMaterial = true;
-
-                  vertexShader = vertexShader.replace(versionRegex, '');
-                  fragmentShader = fragmentShader.replace(versionRegex, '');
-                }
-
-                // GLSL 3.0 conversion
-                const prefixVertex = [
-                  '#version 300 es\n',
-                  '#define attribute in',
-                  '#define varying out',
-                  '#define texture2D texture',
-                  enableMultiview ? '#define AFRAME_enable_multiview' : ''
-                ].join('\n') + '\n';
-
-                const prefixFragment = [
-                  '#version 300 es\n',
-                  '#define varying in',
-                  isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
-                  isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
-                  '#define gl_FragDepthEXT gl_FragDepth',
-                  '#define texture2D texture',
-                  '#define textureCube texture',
-                  '#define texture2DProj textureProj',
-                  '#define texture2DLodEXT textureLod',
-                  '#define texture2DProjLodEXT textureProjLod',
-                  '#define textureCubeLodEXT textureLod',
-                  '#define texture2DGradEXT textureGrad',
-                  '#define texture2DProjGradEXT textureProjGrad',
-                  '#define textureCubeGradEXT textureGrad'
-                ].join('\n') + '\n';
-
-                shaderProto.vertexShader = prefixVertex + vertexShader;
-                shaderProto.fragmentShader = prefixFragment + fragmentShader;
-              }
-            } else {
-              console.warn('No WebGL 2.0 context available. Falling back to WebGL 1.0');
-              if (enableMultiview) {
-                console.warn('Multiview enabled but requires a WebGL2 context');
-                enableMultiview = false;
-              }
-            }
-          }
-
           this.maxCanvasSize = {
             width: rendererAttr.maxCanvasWidth
               ? parseInt(rendererAttr.maxCanvasWidth)
@@ -715,6 +627,10 @@ module.exports.AScene = registerElement('a-scene', {
         renderer = this.renderer = new THREE.WebGLRenderer(rendererConfig);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.sortObjects = false;
+        if (this.camera) { renderer.xr.setPoseTarget(this.camera.el.object3D); }
+        this.addEventListener('camera-set-active', function () {
+          renderer.xr.setPoseTarget(self.camera.el.object3D);
+        });
         loadingScreen.setup(this, getCanvasSize);
       },
       writable: window.debug
@@ -737,7 +653,7 @@ module.exports.AScene = registerElement('a-scene', {
         this.addEventListener('loaded', function () {
           var renderer = this.renderer;
           var vrDisplay;
-          var vrManager = this.renderer.vr;
+          var vrManager = this.renderer.xr;
           AEntity.prototype.play.call(this);  // .play() *before* render.
 
           if (sceneEl.renderStarted) { return; }
@@ -841,7 +757,6 @@ module.exports.AScene = registerElement('a-scene', {
         this.time = this.clock.elapsedTime * 1000;
 
         if (this.isPlaying) { this.tick(this.time, this.delta); }
-
         var savedBackground = null;
         if (this.is('ar-mode')) {
           // In AR mode, don't render the default background. Hide it, then

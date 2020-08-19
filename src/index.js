@@ -1,10 +1,11 @@
+// Polyfill `Promise`.
+window.Promise = window.Promise || require('promise-polyfill');
+
 // WebVR polyfill
 // Check before the polyfill runs.
 window.hasNativeWebVRImplementation = !!window.navigator.getVRDisplays ||
                                       !!window.navigator.getVRDevices;
-
-// HACK: We need force WebVR in Hubs with the window.forceWebVR flag for the time being, until Hubs implements WebXR support.
-window.hasNativeWebXRImplementation = window.forceWebVR !== true && !!navigator.xr;
+window.hasNativeWebXRImplementation = navigator.xr !== undefined;
 
 // If native WebXR or WebVR are defined WebVRPolyfill does not initialize.
 if (!window.hasNativeWebXRImplementation && !window.hasNativeWebVRImplementation) {
@@ -23,6 +24,13 @@ if (!window.hasNativeWebXRImplementation && !window.hasNativeWebVRImplementation
 
 var utils = require('./utils/');
 var debug = utils.debug;
+
+if (utils.isIE11) {
+  // Polyfill `CustomEvent`.
+  require('custom-event-polyfill');
+  // Polyfill String.startsWith.
+  require('../vendor/starts-with-polyfill');
+}
 
 var error = debug('A-Frame:error');
 var warn = debug('A-Frame:warn');
@@ -81,8 +89,9 @@ require('./core/a-mixin');
 require('./extras/components/');
 require('./extras/primitives/');
 
-console.log('A-Frame Version: https://github.com/MozillaReality/aframe');
-console.log('three Version: https://github.com/MozillaReality/three.js');
+console.log('A-Frame Version: 1.0.4 (Date 2020-02-05, Commit #2b359246)');
+console.log('three Version (https://github.com/supermedium/three.js):',
+            pkg.dependencies['super-three']);
 console.log('WebVR Polyfill Version:', pkg.dependencies['webvr-polyfill']);
 
 module.exports = window.AFRAME = {
@@ -110,5 +119,5 @@ module.exports = window.AFRAME = {
   systems: systems,
   THREE: THREE,
   utils: utils,
-  version: 'hubs/master'
+  version: pkg.version
 };

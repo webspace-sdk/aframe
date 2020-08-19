@@ -20,7 +20,6 @@ module.exports.System = registerSystem('renderer', {
     sortObjects: {default: false},
     colorManagement: {default: false},
     gammaOutput: {default: false},
-    webgl2: {default: false},
     alpha: {default: true},
     foveationLevel: {default: 0}
   },

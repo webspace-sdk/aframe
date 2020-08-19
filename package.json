@@ -1,6 +1,6 @@
 {
   "name": "aframe",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A web framework for building virtual reality experiences.",
   "homepage": "https://aframe.io/",
   "main": "src/index.js",
@@ -19,7 +19,7 @@
     "lint:fix": "semistandard --fix",
     "precommit": "npm run lint",
     "prepush": "node scripts/testOnlyCheck.js",
-    "prerelease": "cross-env node scripts/release.js 1.0.2 1.0.3",
+    "prerelease": "node scripts/release.js 1.0.3 1.0.4",
     "start": "npm run dev",
     "start:https": "cross-env SSL=true npm run dev",
     "test": "karma start ./tests/karma.conf.js",
@@ -42,10 +42,14 @@
     "debug": "ngokevin/debug#noTimestamp",
     "deep-assign": "^2.0.0",
     "document-register-element": "dmarcos/document-register-element#8ccc532b7f3744be954574caf3072a5fd260ca90",
+    "load-bmfont": "^1.2.3",
     "object-assign": "^4.0.1",
     "present": "0.0.6",
     "promise-polyfill": "^3.1.0",
     "super-animejs": "^3.1.0",
+    "three": "jel-app/three.js#hubs/master",
+    "three-bmfont-text": "dmarcos/three-bmfont-text#1babdf8507c731a18f8af3b807292e2b9740955e",
+    "three.js": "^0.77.1",
     "webvr-polyfill": "^0.10.10"
   },
   "devDependencies": {
