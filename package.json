@@ -42,12 +42,10 @@
     "debug": "ngokevin/debug#noTimestamp",
     "deep-assign": "^2.0.0",
     "document-register-element": "dmarcos/document-register-element#8ccc532b7f3744be954574caf3072a5fd260ca90",
-    "load-bmfont": "^1.4.1",
     "object-assign": "^4.0.1",
     "present": "0.0.6",
     "promise-polyfill": "^3.1.0",
     "super-animejs": "^3.1.0",
-    "three-bmfont-text": "github:dmarcos/three-bmfont-text#1babdf8507c731a18f8af3b807292e2b9740955e",
     "webvr-polyfill": "^0.10.12"
   },
   "devDependencies": {
