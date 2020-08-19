@@ -16,21 +16,12 @@ module.exports.Shader = registerShader('msdf', {
   raw: true,
 
   vertexShader: [
-    '#ifdef AFRAME_enable_multiview',
-    '  #extension GL_OVR_multiview : require',
-    '  layout(num_views = 2) in;',
-    '#endif',
-    'attribute vec2 uv;',
-    'attribute vec3 position;',
+    '#version 300 es',
+    'in vec2 uv;',
+    'in vec3 position;',
     'uniform mat4 projectionMatrix;',
     'uniform mat4 modelViewMatrix;',
-    '#ifdef AFRAME_enable_multiview',
-    '  uniform mat4 modelViewMatrix2;',
-    '  uniform mat4 projectionMatrix2;',
-    '  #define modelViewMatrix (gl_ViewID_OVR==0u?modelViewMatrix:modelViewMatrix2)',
-    '  #define projectionMatrix (gl_ViewID_OVR==0u?projectionMatrix:projectionMatrix2)',
-    '#endif',
-    'varying vec2 vUV;',
+    'out vec2 vUV;',
     'void main(void) {',
     '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
     '  vUV = uv;',
@@ -38,17 +29,15 @@ module.exports.Shader = registerShader('msdf', {
   ].join('\n'),
 
   fragmentShader: [
-    '#ifdef GL_OES_standard_derivatives',
-    '#extension GL_OES_standard_derivatives: enable',
-    '#endif',
-
+    '#version 300 es',
     'precision highp float;',
     'uniform bool negate;',
     'uniform float alphaTest;',
     'uniform float opacity;',
     'uniform sampler2D map;',
     'uniform vec3 color;',
-    'varying vec2 vUV;',
+    'in vec2 vUV;',
+    'out vec4 fragColor;',
 
     'float median(float r, float g, float b) {',
     '  return max(min(r, g), min(max(r, g), b));',
@@ -59,10 +48,10 @@ module.exports.Shader = registerShader('msdf', {
     '#define MODIFIED_ALPHATEST (0.02 * isBigEnough / BIG_ENOUGH)',
 
     'void main() {',
-    '  vec3 tSample = texture2D(map, vUV).rgb;',
-    '  if (negate) { tSample = 1.0 - tSample; }',
+    '  vec3 sampleColor = texture(map, vUV).rgb;',
+    '  if (negate) { sampleColor = 1.0 - sampleColor; }',
 
-    '  float sigDist = median(tSample.r, tSample.g, tSample.b) - 0.5;',
+    '  float sigDist = median(sampleColor.r, sampleColor.g, sampleColor.b) - 0.5;',
     '  float alpha = clamp(sigDist / fwidth(sigDist) + 0.5, 0.0, 1.0);',
     '  float dscale = 0.353505;',
     '  vec2 duv = dscale * (dFdx(vUV) + dFdy(vUV));',
@@ -78,7 +67,7 @@ module.exports.Shader = registerShader('msdf', {
 
     '  // Do modified alpha test.',
     '  if (alpha < alphaTest * MODIFIED_ALPHATEST) { discard; return; }',
-    '  gl_FragColor = vec4(color.xyz, alpha * opacity);',
+    '  fragColor = vec4(color.xyz, alpha * opacity);',
     '}'
   ].join('\n')
 });
