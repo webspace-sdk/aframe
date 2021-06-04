@@ -262,7 +262,7 @@ module.exports.AScene = registerElement('a-scene', {
       value: function (useAR) {
         var self = this;
         var vrDisplay;
-        var vrManager = self.renderer.vr;
+        var vrManager = self.renderer.xr;
 
         // Don't enter VR if already in VR.
         if (this.is('vr-mode')) { return Promise.resolve('Already in VR.'); }
@@ -368,7 +368,7 @@ module.exports.AScene = registerElement('a-scene', {
       value: function () {
         var self = this;
         var vrDisplay;
-        var vrManager = this.renderer.vr;
+        var vrManager = this.renderer.xr;
 
         // Don't exit VR if not in VR.
         if (!this.is('vr-mode')) { return Promise.resolve('Not in VR.'); }
@@ -552,7 +552,7 @@ module.exports.AScene = registerElement('a-scene', {
           return;
         }
 
-        var isPresenting = this.renderer.xr.isPresenting;
+        var isPresenting = this.renderer.xr.isPresenting();
         isVRPresenting = this.renderer.xr.enabled && isPresenting;
 
         // Do not update renderer, if a camera or a canvas have not been injected.
@@ -741,7 +741,7 @@ module.exports.AScene = registerElement('a-scene', {
         this.addEventListener('loaded', function () {
           var renderer = this.renderer;
           var vrDisplay;
-          var vrManager = this.renderer.vr;
+          var vrManager = this.renderer.xr;
           AEntity.prototype.play.call(this);  // .play() *before* render.
 
           if (sceneEl.renderStarted) { return; }
