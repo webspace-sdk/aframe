@@ -548,8 +548,12 @@ module.exports.AScene = registerElement('a-scene', {
         var isVRPresenting;
         var size;
 
-        var isPresenting = this.renderer.vr.isPresenting();
-        isVRPresenting = this.renderer.vr.enabled && isPresenting;
+        if (this.hasAttribute('disable-resize')) {
+          return;
+        }
+
+        var isPresenting = this.renderer.xr.isPresenting;
+        isVRPresenting = this.renderer.xr.enabled && isPresenting;
 
         // Do not update renderer, if a camera or a canvas have not been injected.
         // In VR mode, three handles canvas resize based on the dimensions returned by
