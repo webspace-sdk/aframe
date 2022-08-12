@@ -68622,7 +68622,7 @@ module.exports.Component = registerComponent('pool', {
     }
 
     if (this.data.container) {
-      this.container = document.querySelector(this.data.container);
+      this.container = this.sceneEl.querySelector(this.data.container);
       if (!this.container) {
         warn('Container ' + this.data.container + ' not found.');
       }
@@ -70345,7 +70345,7 @@ var proto = Object.create(ANode.prototype, {
 
       // Remove existing object of the type.
       oldObj = this.getObject3D(type);
-      if (oldObj) { 
+      if (oldObj) {
         this.object3D.remove(oldObj);
         // https://github.com/aframevr/aframe/issues/4637
         oldObj.el = null;
@@ -70854,7 +70854,7 @@ var proto = Object.create(ANode.prototype, {
 
         // Loop over old mixins to call for data rebuild.
         for (i = 0; i < mixinIds.oldMixinIds.length; i++) {
-          mixinEl = document.getElementById(mixinIds.oldMixinIds[i]);
+          mixinEl = this.sceneEl.getElementById(mixinIds.oldMixinIds[i]);
           if (!mixinEl) { continue; }
           for (component in mixinEl.componentCache) {
             if (componentsUpdated.indexOf(component) === -1) {
@@ -71435,7 +71435,7 @@ module.exports = registerElement('a-node', {
           this.computedMixinStr = '';
           this.mixinEls.length = 0;
           for (i = 0; i < newMixinIds.length; i++) {
-            this.registerMixin(document.getElementById(newMixinIds[i]));
+            this.registerMixin(this.sceneEl.getElementById(newMixinIds[i]));
           }
 
           // Update DOM. Keep track of `computedMixinStr` to not recurse back here after
@@ -71469,7 +71469,7 @@ module.exports = registerElement('a-node', {
         if (mixin) {
           compositedMixinIds = utils.split(mixin.trim(), /\s+/);
           for (i = 0; i < compositedMixinIds.length; i++) {
-            this.registerMixin(document.getElementById(compositedMixinIds[i]));
+            this.registerMixin(this.sceneEl.getElementById(compositedMixinIds[i]));
           }
         }
 
@@ -72681,7 +72681,7 @@ function assetParse (value) {
 
   // ID.
   if (value.charAt(0) === '#') {
-    el = document.getElementById(value.substring(1));
+    el = window.AFRAME.selectorRoot.getElementById(value.substring(1));
     if (el) {
       // Pass through media elements. If we have the elements, we don't have to call
       // three.js loaders which would re-request the assets.
@@ -72725,15 +72725,15 @@ function selectorParse (value) {
   if (value[0] === '#' && !nonCharRegex.test(value)) {
     // When selecting element by ID only, use getElementById for better performance.
     // Don't match like #myId .child.
-    return document.getElementById(value.substring(1));
+    return window.AFRAME.selectorRoot.getElementById(value.substring(1));
   }
-  return document.querySelector(value);
+  return window.AFRAME.selectorRoot.querySelector(value);
 }
 
 function selectorAllParse (value) {
   if (!value) { return null; }
   if (typeof value !== 'string') { return value; }
-  return Array.prototype.slice.call(document.querySelectorAll(value), 0);
+  return Array.prototype.slice.call(window.AFRAME.selectorRoot.querySelectorAll(value), 0);
 }
 
 function selectorStringify (value) {
@@ -75629,6 +75629,7 @@ module.exports = window.AFRAME = {
   },
   scenes: _dereq_('./core/scene/scenes'),
   schema: _dereq_('./core/schema'),
+  selectorRoot: document,
   shaders: shaders,
   systems: systems,
   THREE: THREE,
@@ -76754,7 +76755,7 @@ module.exports.System = registerSystem('light', {
     var sceneEl = this.sceneEl;
 
     if (!this.defaultLights) { return; }
-    defaultLights = document.querySelectorAll('[' + DEFAULT_LIGHT_ATTR + ']');
+    defaultLights = sceneEl.querySelectorAll('[' + DEFAULT_LIGHT_ATTR + ']');
     for (var i = 0; i < defaultLights.length; i++) {
       sceneEl.removeChild(defaultLights[i]);
     }
@@ -78608,7 +78609,7 @@ function checkIsImageFallback (src, onResult) {
  */
 function validateAndGetQuerySelector (selector) {
   try {
-    var el = document.querySelector(selector);
+    var el = window.AFRAME.selectorRoot.querySelector(selector);
     if (!el) {
       warn('No element was found matching the selector: "%s"', selector);
     }
