@@ -139,7 +139,7 @@ function checkIsImageFallback (src, onResult) {
  */
 function validateAndGetQuerySelector (selector) {
   try {
-    var el = document.querySelector(selector);
+    var el = window.AFRAME.selectorRoot.querySelector(selector);
     if (!el) {
       warn('No element was found matching the selector: "%s"', selector);
     }

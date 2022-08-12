@@ -174,7 +174,7 @@ module.exports = registerElement('a-node', {
           this.computedMixinStr = '';
           this.mixinEls.length = 0;
           for (i = 0; i < newMixinIds.length; i++) {
-            this.registerMixin(document.getElementById(newMixinIds[i]));
+            this.registerMixin(this.sceneEl.getElementById(newMixinIds[i]));
           }
 
           // Update DOM. Keep track of `computedMixinStr` to not recurse back here after
@@ -208,7 +208,7 @@ module.exports = registerElement('a-node', {
         if (mixin) {
           compositedMixinIds = utils.split(mixin.trim(), /\s+/);
           for (i = 0; i < compositedMixinIds.length; i++) {
-            this.registerMixin(document.getElementById(compositedMixinIds[i]));
+            this.registerMixin(this.sceneEl.getElementById(compositedMixinIds[i]));
           }
         }
 

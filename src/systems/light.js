@@ -45,7 +45,7 @@ module.exports.System = registerSystem('light', {
     var sceneEl = this.sceneEl;
 
     if (!this.defaultLights) { return; }
-    defaultLights = document.querySelectorAll('[' + DEFAULT_LIGHT_ATTR + ']');
+    defaultLights = sceneEl.querySelectorAll('[' + DEFAULT_LIGHT_ATTR + ']');
     for (var i = 0; i < defaultLights.length; i++) {
       sceneEl.removeChild(defaultLights[i]);
     }

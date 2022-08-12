@@ -649,7 +649,7 @@ var proto = Object.create(ANode.prototype, {
 
         // Loop over old mixins to call for data rebuild.
         for (i = 0; i < mixinIds.oldMixinIds.length; i++) {
-          mixinEl = document.getElementById(mixinIds.oldMixinIds[i]);
+          mixinEl = this.sceneEl.getElementById(mixinIds.oldMixinIds[i]);
           if (!mixinEl) { continue; }
           for (component in mixinEl.componentCache) {
             if (componentsUpdated.indexOf(component) === -1) {

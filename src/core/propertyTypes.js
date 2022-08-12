@@ -83,7 +83,7 @@ function assetParse (value) {
 
   // ID.
   if (value.charAt(0) === '#') {
-    el = document.getElementById(value.substring(1));
+    el = window.AFRAME.selectorRoot.getElementById(value.substring(1));
     if (el) {
       // Pass through media elements. If we have the elements, we don't have to call
       // three.js loaders which would re-request the assets.
@@ -127,15 +127,15 @@ function selectorParse (value) {
   if (value[0] === '#' && !nonCharRegex.test(value)) {
     // When selecting element by ID only, use getElementById for better performance.
     // Don't match like #myId .child.
-    return document.getElementById(value.substring(1));
+    return window.AFRAME.selectorRoot.getElementById(value.substring(1));
   }
-  return document.querySelector(value);
+  return window.AFRAME.selectorRoot.querySelector(value);
 }
 
 function selectorAllParse (value) {
   if (!value) { return null; }
   if (typeof value !== 'string') { return value; }
-  return Array.prototype.slice.call(document.querySelectorAll(value), 0);
+  return Array.prototype.slice.call(window.AFRAME.selectorRoot.querySelectorAll(value), 0);
 }
 
 function selectorStringify (value) {

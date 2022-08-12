@@ -106,6 +106,7 @@ module.exports = window.AFRAME = {
   },
   scenes: require('./core/scene/scenes'),
   schema: require('./core/schema'),
+  selectorRoot: document,
   shaders: shaders,
   systems: systems,
   THREE: THREE,

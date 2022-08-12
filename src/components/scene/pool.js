@@ -32,7 +32,7 @@ module.exports.Component = registerComponent('pool', {
     }
 
     if (this.data.container) {
-      this.container = document.querySelector(this.data.container);
+      this.container = this.sceneEl.querySelector(this.data.container);
       if (!this.container) {
         warn('Container ' + this.data.container + ' not found.');
       }
