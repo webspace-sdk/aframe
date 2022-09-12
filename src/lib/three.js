@@ -1,4 +1,8 @@
-var THREE = global.THREE = require('three');
+var THREE = global.THREE;
+
+if (!THREE) {
+  THREE = global.THREE = require('three');
+}
 
 // Allow cross-origin images to be loaded.
 
