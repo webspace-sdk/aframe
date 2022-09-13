@@ -1,8 +1,4 @@
-var THREE = global.THREE;
-
-if (!THREE) {
-  THREE = global.THREE = require('three');
-}
+var THREE = global.THREE = require('three');
 
 // Allow cross-origin images to be loaded.
 
@@ -16,21 +12,5 @@ if (THREE.TextureLoader) {
 if (THREE.ImageLoader) {
   THREE.ImageLoader.prototype.crossOrigin = 'anonymous';
 }
-
-// In-memory caching for XHRs (for images, audio files, textures, etc.).
-if (THREE.Cache) {
-  THREE.Cache.enabled = true;
-}
-
-// TODO: Eventually include these only if they are needed by a component.
-require('three/examples/js/loaders/DRACOLoader');  // THREE.DRACOLoader
-require('three/examples/js/loaders/GLTFLoader');  // THREE.GLTFLoader
-require('three/examples/js/loaders/OBJLoader');  // THREE.OBJLoader
-require('three/examples/js/loaders/MTLLoader');  // THREE.MTLLoader
-
-THREE.DRACOLoader.prototype.crossOrigin = 'anonymous';
-THREE.GLTFLoader.prototype.crossOrigin = 'anonymous';
-THREE.MTLLoader.prototype.crossOrigin = 'anonymous';
-THREE.OBJLoader.prototype.crossOrigin = 'anonymous';
 
 module.exports = THREE;
