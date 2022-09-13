@@ -43777,7 +43777,7 @@ function isRawProperty (data) {
          data.property.startsWith(STRING_OBJECT3D);
 }
 
-},{"../core/component":56,"../lib/three":103,"../utils":126,"super-animejs":10}],15:[function(require,module,exports){
+},{"../core/component":53,"../lib/three":100,"../utils":123,"super-animejs":10}],15:[function(require,module,exports){
 var registerComponent = require('../core/component').registerComponent;
 var THREE = require('../lib/three');
 
@@ -43869,7 +43869,7 @@ module.exports.Component = registerComponent('camera', {
   }
 });
 
-},{"../core/component":56,"../lib/three":103}],16:[function(require,module,exports){
+},{"../core/component":53,"../lib/three":100}],16:[function(require,module,exports){
 /* global THREE */
 var registerComponent = require('../core/component').registerComponent;
 var utils = require('../utils/');
@@ -44268,7 +44268,7 @@ module.exports.Component = registerComponent('cursor', {
   }
 });
 
-},{"../core/component":56,"../utils/":126}],17:[function(require,module,exports){
+},{"../core/component":53,"../utils/":123}],17:[function(require,module,exports){
 var registerComponent = require('../core/component').registerComponent;
 var bind = require('../utils/bind');
 
@@ -44432,7 +44432,7 @@ module.exports.Component = registerComponent('generic-tracked-controller-control
   }
 });
 
-},{"../core/component":56,"../utils/bind":120,"../utils/tracked-controls":134}],18:[function(require,module,exports){
+},{"../core/component":53,"../utils/bind":117,"../utils/tracked-controls":131}],18:[function(require,module,exports){
 var geometries = require('../core/geometry').geometries;
 var geometryNames = require('../core/geometry').geometryNames;
 var registerComponent = require('../core/component').registerComponent;
@@ -44511,477 +44511,31 @@ module.exports.Component = registerComponent('geometry', {
   }
 });
 
-},{"../core/component":56,"../core/geometry":57,"../lib/three":103}],19:[function(require,module,exports){
-var registerComponent = require('../core/component').registerComponent;
-var THREE = require('../lib/three');
-var utils = require('../utils/');
-var warn = utils.debug('components:gltf-model:warn');
-
-/**
- * glTF model loader.
- */
-module.exports.Component = registerComponent('gltf-model', {
-  schema: {type: 'model'},
-
-  init: function () {
-    var dracoLoader = this.system.getDRACOLoader();
-    this.model = null;
-    this.loader = new THREE.GLTFLoader();
-    if (dracoLoader) {
-      this.loader.setDRACOLoader(dracoLoader);
-    }
-  },
-
-  update: function () {
-    var self = this;
-    var el = this.el;
-    var src = this.data;
-
-    if (!src) { return; }
-
-    this.remove();
-
-    this.loader.load(src, function gltfLoaded (gltfModel) {
-      self.model = gltfModel.scene || gltfModel.scenes[0];
-      self.model.animations = gltfModel.animations;
-      el.setObject3D('mesh', self.model);
-      el.emit('model-loaded', {format: 'gltf', model: self.model});
-    }, undefined /* onProgress */, function gltfFailed (error) {
-      var message = (error && error.message) ? error.message : 'Failed to load glTF model';
-      warn(message);
-      el.emit('model-error', {format: 'gltf', src: src});
-    });
-  },
-
-  remove: function () {
-    if (!this.model) { return; }
-    this.el.removeObject3D('mesh');
-  }
-});
-
-},{"../core/component":56,"../lib/three":103,"../utils/":126}],20:[function(require,module,exports){
-/* global THREE */
+},{"../core/component":53,"../core/geometry":54,"../lib/three":100}],19:[function(require,module,exports){
 var registerComponent = require('../core/component').registerComponent;
 
-// Found at https://github.com/aframevr/assets.
-var MODEL_URLS = {
-  left: 'https://cdn.aframe.io/controllers/hands/leftHand.glb',
-  right: 'https://cdn.aframe.io/controllers/hands/rightHand.glb'
-};
-
-// Poses.
-var ANIMATIONS = {
-  open: 'Open',
-  // point: grip active, trackpad surface active, trigger inactive.
-  point: 'Point',
-  // pointThumb: grip active, trigger inactive, trackpad surface inactive.
-  pointThumb: 'Point + Thumb',
-  // fist: grip active, trigger active, trackpad surface active.
-  fist: 'Fist',
-  // hold: trigger active, grip inactive.
-  hold: 'Hold',
-  // thumbUp: grip active, trigger active, trackpad surface inactive.
-  thumbUp: 'Thumb Up'
-};
-
-// Map animation to public events for the API.
-var EVENTS = {};
-EVENTS[ANIMATIONS.fist] = 'grip';
-EVENTS[ANIMATIONS.thumbUp] = 'pistol';
-EVENTS[ANIMATIONS.point] = 'pointing';
-
-/**
- * Hand controls component that abstracts 6DoF controls:
- *   oculus-touch-controls, vive-controls, windows-motion-controls.
- *
- * Originally meant to be a sample implementation of applications-specific controls that
- * abstracts multiple types of controllers.
- *
- * Auto-detect appropriate controller.
- * Handle common events coming from the detected vendor-specific controls.
- * Translate button events to semantic hand-related event names:
- *   (gripclose, gripopen, thumbup, thumbdown, pointup, pointdown)
- * Load hand model with gestures that are applied based on the button pressed.
- *
- * @property {string} Hand mapping (`left`, `right`).
- */
-module.exports.Component = registerComponent('hand-controls', {
-  schema: {default: 'left'},
-
-  init: function () {
-    var self = this;
-    var el = this.el;
-    // Current pose.
-    this.gesture = ANIMATIONS.open;
-    // Active buttons populated by events provided by the attached controls.
-    this.pressedButtons = {};
-    this.touchedButtons = {};
-    this.loader = new THREE.GLTFLoader();
-    this.loader.setCrossOrigin('anonymous');
-
-    this.onGripDown = function () { self.handleButton('grip', 'down'); };
-    this.onGripUp = function () { self.handleButton('grip', 'up'); };
-    this.onTrackpadDown = function () { self.handleButton('trackpad', 'down'); };
-    this.onTrackpadUp = function () { self.handleButton('trackpad', 'up'); };
-    this.onTrackpadTouchStart = function () { self.handleButton('trackpad', 'touchstart'); };
-    this.onTrackpadTouchEnd = function () { self.handleButton('trackpad', 'touchend'); };
-    this.onTriggerDown = function () { self.handleButton('trigger', 'down'); };
-    this.onTriggerUp = function () { self.handleButton('trigger', 'up'); };
-    this.onTriggerTouchStart = function () { self.handleButton('trigger', 'touchstart'); };
-    this.onTriggerTouchEnd = function () { self.handleButton('trigger', 'touchend'); };
-    this.onGripTouchStart = function () { self.handleButton('grip', 'touchstart'); };
-    this.onGripTouchEnd = function () { self.handleButton('grip', 'touchend'); };
-    this.onThumbstickDown = function () { self.handleButton('thumbstick', 'down'); };
-    this.onThumbstickUp = function () { self.handleButton('thumbstick', 'up'); };
-    this.onAorXTouchStart = function () { self.handleButton('AorX', 'touchstart'); };
-    this.onAorXTouchEnd = function () { self.handleButton('AorX', 'touchend'); };
-    this.onBorYTouchStart = function () { self.handleButton('BorY', 'touchstart'); };
-    this.onBorYTouchEnd = function () { self.handleButton('BorY', 'touchend'); };
-    this.onSurfaceTouchStart = function () { self.handleButton('surface', 'touchstart'); };
-    this.onSurfaceTouchEnd = function () { self.handleButton('surface', 'touchend'); };
-    this.onControllerConnected = this.onControllerConnected.bind(this);
-    this.onControllerDisconnected = this.onControllerDisconnected.bind(this);
-
-    el.addEventListener('controllerconnected', this.onControllerConnected);
-    el.addEventListener('controllerdisconnected', this.onControllerDisconnected);
-
-    // Hidden by default.
-    el.object3D.visible = false;
-  },
-
-  play: function () {
-    this.addEventListeners();
-  },
-
-  pause: function () {
-    this.removeEventListeners();
-  },
-
-  tick: function (time, delta) {
-    var mesh = this.el.getObject3D('mesh');
-
-    if (!mesh || !mesh.mixer) { return; }
-
-    mesh.mixer.update(delta / 1000);
-  },
-
-  onControllerConnected: function () {
-    this.el.object3D.visible = true;
-  },
-
-  onControllerDisconnected: function () {
-    this.el.object3D.visible = false;
-  },
-
-  addEventListeners: function () {
-    var el = this.el;
-    el.addEventListener('gripdown', this.onGripDown);
-    el.addEventListener('gripup', this.onGripUp);
-    el.addEventListener('trackpaddown', this.onTrackpadDown);
-    el.addEventListener('trackpadup', this.onTrackpadUp);
-    el.addEventListener('trackpadtouchstart', this.onTrackpadTouchStart);
-    el.addEventListener('trackpadtouchend', this.onTrackpadTouchEnd);
-    el.addEventListener('triggerdown', this.onTriggerDown);
-    el.addEventListener('triggerup', this.onTriggerUp);
-    el.addEventListener('triggertouchstart', this.onTriggerTouchStart);
-    el.addEventListener('triggertouchend', this.onTriggerTouchEnd);
-    el.addEventListener('griptouchstart', this.onGripTouchStart);
-    el.addEventListener('griptouchend', this.onGripTouchEnd);
-    el.addEventListener('thumbstickdown', this.onThumbstickDown);
-    el.addEventListener('thumbstickup', this.onThumbstickUp);
-    el.addEventListener('abuttontouchstart', this.onAorXTouchStart);
-    el.addEventListener('abuttontouchend', this.onAorXTouchEnd);
-    el.addEventListener('bbuttontouchstart', this.onBorYTouchStart);
-    el.addEventListener('bbuttontouchend', this.onBorYTouchEnd);
-    el.addEventListener('xbuttontouchstart', this.onAorXTouchStart);
-    el.addEventListener('xbuttontouchend', this.onAorXTouchEnd);
-    el.addEventListener('ybuttontouchstart', this.onBorYTouchStart);
-    el.addEventListener('ybuttontouchend', this.onBorYTouchEnd);
-    el.addEventListener('surfacetouchstart', this.onSurfaceTouchStart);
-    el.addEventListener('surfacetouchend', this.onSurfaceTouchEnd);
-  },
-
-  removeEventListeners: function () {
-    var el = this.el;
-    el.removeEventListener('gripdown', this.onGripDown);
-    el.removeEventListener('gripup', this.onGripUp);
-    el.removeEventListener('trackpaddown', this.onTrackpadDown);
-    el.removeEventListener('trackpadup', this.onTrackpadUp);
-    el.removeEventListener('trackpadtouchstart', this.onTrackpadTouchStart);
-    el.removeEventListener('trackpadtouchend', this.onTrackpadTouchEnd);
-    el.removeEventListener('triggerdown', this.onTriggerDown);
-    el.removeEventListener('triggerup', this.onTriggerUp);
-    el.removeEventListener('triggertouchstart', this.onTriggerTouchStart);
-    el.removeEventListener('triggertouchend', this.onTriggerTouchEnd);
-    el.removeEventListener('griptouchstart', this.onGripTouchStart);
-    el.removeEventListener('griptouchend', this.onGripTouchEnd);
-    el.removeEventListener('thumbstickdown', this.onThumbstickDown);
-    el.removeEventListener('thumbstickup', this.onThumbstickUp);
-    el.removeEventListener('abuttontouchstart', this.onAorXTouchStart);
-    el.removeEventListener('abuttontouchend', this.onAorXTouchEnd);
-    el.removeEventListener('bbuttontouchstart', this.onBorYTouchStart);
-    el.removeEventListener('bbuttontouchend', this.onBorYTouchEnd);
-    el.removeEventListener('xbuttontouchstart', this.onAorXTouchStart);
-    el.removeEventListener('xbuttontouchend', this.onAorXTouchEnd);
-    el.removeEventListener('ybuttontouchstart', this.onBorYTouchStart);
-    el.removeEventListener('ybuttontouchend', this.onBorYTouchEnd);
-    el.removeEventListener('surfacetouchstart', this.onSurfaceTouchStart);
-    el.removeEventListener('surfacetouchend', this.onSurfaceTouchEnd);
-  },
-
-  /**
-   * Update handler. More like the `init` handler since the only property is the hand, and
-   * that won't be changing much.
-   */
-  update: function (previousHand) {
-    var controlConfiguration;
-    var el = this.el;
-    var hand = this.data;
-    var self = this;
-
-    // Get common configuration to abstract different vendor controls.
-    controlConfiguration = {
-      hand: hand,
-      model: false,
-      orientationOffset: {x: 0, y: 0, z: hand === 'left' ? 90 : -90}
-    };
-
-    // Set model.
-    if (hand !== previousHand) {
-      this.loader.load(MODEL_URLS[hand], function (gltf) {
-        var mesh = gltf.scene.children[0];
-        mesh.mixer = new THREE.AnimationMixer(mesh);
-        self.clips = gltf.animations;
-        el.setObject3D('mesh', mesh);
-        mesh.position.set(0, 0, 0);
-        mesh.rotation.set(0, 0, 0);
-        el.setAttribute('vive-controls', controlConfiguration);
-        el.setAttribute('oculus-touch-controls', controlConfiguration);
-        el.setAttribute('windows-motion-controls', controlConfiguration);
-      });
+function stubComponent (name) {
+  registerComponent(name, {
+    init () {
+      console.warn(`The ${name} aframe component no longer exists.`);
     }
-  },
-
-  remove: function () {
-    this.el.removeObject3D('mesh');
-  },
-
-  /**
-   * Play model animation, based on which button was pressed and which kind of event.
-   *
-   * 1. Process buttons.
-   * 2. Determine gesture (this.determineGesture()).
-   * 3. Animation gesture (this.animationGesture()).
-   * 4. Emit gesture events (this.emitGestureEvents()).
-   *
-   * @param {string} button - Name of the button.
-   * @param {string} evt - Type of event for the button (i.e., down/up/touchstart/touchend).
-   */
-  handleButton: function (button, evt) {
-    var lastGesture;
-    var isPressed = evt === 'down';
-    var isTouched = evt === 'touchstart';
-
-    // Update objects.
-    if (evt.indexOf('touch') === 0) {
-      // Update touch object.
-      if (isTouched === this.touchedButtons[button]) { return; }
-      this.touchedButtons[button] = isTouched;
-    } else {
-      // Update button object.
-      if (isPressed === this.pressedButtons[button]) { return; }
-      this.pressedButtons[button] = isPressed;
-    }
-
-    // Determine the gesture.
-    lastGesture = this.gesture;
-    this.gesture = this.determineGesture();
-
-    // Same gesture.
-    if (this.gesture === lastGesture) { return; }
-    // Animate gesture.
-    this.animateGesture(this.gesture, lastGesture);
-
-    // Emit events.
-    this.emitGestureEvents(this.gesture, lastGesture);
-  },
-
-  /**
-   * Determine which pose hand should be in considering active and touched buttons.
-   */
-  determineGesture: function () {
-    var gesture;
-    var isGripActive = this.pressedButtons['grip'];
-    var isSurfaceActive = this.pressedButtons['surface'] || this.touchedButtons['surface'];
-    var isTrackpadActive = this.pressedButtons['trackpad'] || this.touchedButtons['trackpad'];
-    var isTriggerActive = this.pressedButtons['trigger'] || this.touchedButtons['trigger'];
-    var isABXYActive = this.touchedButtons['AorX'] || this.touchedButtons['BorY'];
-    var isVive = isViveController(this.el.components['tracked-controls']);
-
-    // Works well with Oculus Touch and Windows Motion Controls, but Vive needs tweaks.
-    if (isVive) {
-      if (isGripActive || isTriggerActive) {
-        gesture = ANIMATIONS.fist;
-      } else if (isTrackpadActive) {
-        gesture = ANIMATIONS.point;
-      }
-    } else {
-      if (isGripActive) {
-        if (isSurfaceActive || isABXYActive || isTrackpadActive) {
-          gesture = isTriggerActive ? ANIMATIONS.fist : ANIMATIONS.point;
-        } else {
-          gesture = isTriggerActive ? ANIMATIONS.thumbUp : ANIMATIONS.pointThumb;
-        }
-      } else if (isTriggerActive) {
-        gesture = ANIMATIONS.hold;
-      }
-    }
-
-    return gesture;
-  },
-
-  /**
-   * Play corresponding clip to a gesture
-   */
-  getClip: function (gesture) {
-    var clip;
-    var i;
-    for (i = 0; i < this.clips.length; i++) {
-      clip = this.clips[i];
-      if (clip.name !== gesture) { continue; }
-      return clip;
-    }
-  },
-
-  /**
-   * Play gesture animation.
-   *
-   * @param {string} gesture - Which pose to animate to. If absent, then animate to open.
-   * @param {string} lastGesture - Previous gesture, to reverse back to open if needed.
-   */
-  animateGesture: function (gesture, lastGesture) {
-    if (gesture) {
-      this.playAnimation(gesture || ANIMATIONS.open, lastGesture, false);
-      return;
-    }
-
-    // If no gesture, then reverse the current gesture back to open pose.
-    this.playAnimation(lastGesture, lastGesture, true);
-  },
-
-  /**
-   * Emit `hand-controls`-specific events.
-   */
-  emitGestureEvents: function (gesture, lastGesture) {
-    var el = this.el;
-    var eventName;
-
-    if (lastGesture === gesture) { return; }
-
-    // Emit event for lastGesture not inactive.
-    eventName = getGestureEventName(lastGesture, false);
-    if (eventName) { el.emit(eventName); }
-
-    // Emit event for current gesture now active.
-    eventName = getGestureEventName(gesture, true);
-    if (eventName) { el.emit(eventName); }
-  },
-
-/**
-  * Play hand animation based on button state.
-  *
-  * @param {string} gesture - Name of the animation as specified by the model.
-  * @param {string} lastGesture - Previous pose.
-  * @param {boolean} reverse - Whether animation should play in reverse.
-  */
-  playAnimation: function (gesture, lastGesture, reverse) {
-    var clip;
-    var fromAction;
-    var mesh = this.el.getObject3D('mesh');
-    var toAction;
-
-    if (!mesh) { return; }
-
-    // Stop all current animations.
-    mesh.mixer.stopAllAction();
-
-    // Grab clip action.
-    clip = this.getClip(gesture);
-    toAction = mesh.mixer.clipAction(clip);
-    toAction.clampWhenFinished = true;
-    toAction.loop = THREE.LoopRepeat;
-    toAction.repetitions = 0;
-    toAction.timeScale = reverse ? -1 : 1;
-    toAction.time = reverse ? clip.duration : 0;
-    toAction.weight = 1;
-
-    // No gesture to gesture or gesture to no gesture.
-    if (!lastGesture || gesture === lastGesture) {
-      // Stop all current animations.
-      mesh.mixer.stopAllAction();
-      // Play animation.
-      toAction.play();
-      return;
-    }
-
-    // Animate or crossfade from gesture to gesture.
-    clip = this.getClip(lastGesture);
-    fromAction = mesh.mixer.clipAction(clip);
-    fromAction.weight = 0.15;
-    fromAction.play();
-    toAction.play();
-    fromAction.crossFadeTo(toAction, 0.15, true);
-  }
-});
-
-/**
- * Suffix gestures based on toggle state (e.g., open/close, up/down, start/end).
- *
- * @param {string} gesture
- * @param {boolean} active
- */
-function getGestureEventName (gesture, active) {
-  var eventName;
-
-  if (!gesture) { return; }
-
-  eventName = EVENTS[gesture];
-  if (eventName === 'grip') {
-    return eventName + (active ? 'close' : 'open');
-  }
-  if (eventName === 'point') {
-    return eventName + (active ? 'up' : 'down');
-  }
-  if (eventName === 'pointing' || eventName === 'pistol') {
-    return eventName + (active ? 'start' : 'end');
-  }
-  return;
+  });
 }
 
-function isViveController (trackedControls) {
-  var controller = trackedControls && trackedControls.controller;
-  var isVive = controller && (controller.id && controller.id.indexOf('OpenVR ') === 0 ||
-    (controller.profiles &&
-     controller.profiles[0] &&
-     controller.profiles[0] === 'htc-vive-controller-mv'));
-  return isVive;
-}
-
-},{"../core/component":56}],21:[function(require,module,exports){
 require('./animation');
 require('./camera');
 require('./cursor');
 require('./geometry');
 require('./generic-tracked-controller-controls');
-require('./gltf-model');
-require('./hand-controls');
+stubComponent('./gltf-model');
+stubComponent('./hand-controls');
 require('./laser-controls');
 require('./light');
 require('./line');
 require('./link');
 require('./look-controls');
 require('./material');
-require('./obj-model');
+stubComponent('./obj-model');
 require('./position');
 require('./raycaster');
 require('./rotation');
@@ -45003,7 +44557,7 @@ require('./scene/screenshot');
 require('./scene/stats');
 require('./scene/vr-mode-ui');
 
-},{"./animation":14,"./camera":15,"./cursor":16,"./generic-tracked-controller-controls":17,"./geometry":18,"./gltf-model":19,"./hand-controls":20,"./laser-controls":22,"./light":23,"./line":24,"./link":25,"./look-controls":26,"./material":27,"./obj-model":28,"./position":29,"./raycaster":30,"./rotation":31,"./scale":32,"./scene/background":33,"./scene/debug":34,"./scene/device-orientation-permission-ui":35,"./scene/embedded":36,"./scene/fog":37,"./scene/inspector":38,"./scene/keyboard-shortcuts":39,"./scene/pool":40,"./scene/screenshot":41,"./scene/stats":42,"./scene/vr-mode-ui":43,"./shadow":44,"./sound":45,"./visible":46,"./wasd-controls":47}],22:[function(require,module,exports){
+},{"../core/component":53,"./animation":14,"./camera":15,"./cursor":16,"./generic-tracked-controller-controls":17,"./geometry":18,"./laser-controls":20,"./light":21,"./line":22,"./link":23,"./look-controls":24,"./material":25,"./position":26,"./raycaster":27,"./rotation":28,"./scale":29,"./scene/background":30,"./scene/debug":31,"./scene/device-orientation-permission-ui":32,"./scene/embedded":33,"./scene/fog":34,"./scene/inspector":35,"./scene/keyboard-shortcuts":36,"./scene/pool":37,"./scene/screenshot":38,"./scene/stats":39,"./scene/vr-mode-ui":40,"./shadow":41,"./sound":42,"./visible":43,"./wasd-controls":44}],20:[function(require,module,exports){
 var registerComponent = require('../core/component').registerComponent;
 var utils = require('../utils/');
 
@@ -45115,7 +44669,7 @@ registerComponent('laser-controls', {
   }
 });
 
-},{"../core/component":56,"../utils/":126}],23:[function(require,module,exports){
+},{"../core/component":53,"../utils/":123}],21:[function(require,module,exports){
 var bind = require('../utils/bind');
 var diff = require('../utils').diff;
 var debug = require('../utils/debug');
@@ -45404,7 +44958,7 @@ module.exports.Component = registerComponent('light', {
   }
 });
 
-},{"../core/component":56,"../lib/three":103,"../utils":126,"../utils/bind":120,"../utils/debug":122}],24:[function(require,module,exports){
+},{"../core/component":53,"../lib/three":100,"../utils":123,"../utils/bind":117,"../utils/debug":119}],22:[function(require,module,exports){
 /* global THREE */
 var registerComponent = require('../core/component').registerComponent;
 
@@ -45482,7 +45036,7 @@ function isEqualVec3 (a, b) {
   return (a.x === b.x && a.y === b.y && a.z === b.z);
 }
 
-},{"../core/component":56}],25:[function(require,module,exports){
+},{"../core/component":53}],23:[function(require,module,exports){
 var registerComponent = require('../core/component').registerComponent;
 var registerShader = require('../core/shader').registerShader;
 var THREE = require('../lib/three');
@@ -45854,7 +45408,7 @@ registerShader('portal', {
 });
 /* eslint-enable */
 
-},{"../core/component":56,"../core/shader":66,"../lib/three":103}],26:[function(require,module,exports){
+},{"../core/component":53,"../core/shader":63,"../lib/three":100}],24:[function(require,module,exports){
 /* global DeviceOrientationEvent  */
 var registerComponent = require('../core/component').registerComponent;
 var THREE = require('../lib/three');
@@ -46331,7 +45885,7 @@ module.exports.Component = registerComponent('look-controls', {
   }
 });
 
-},{"../core/component":56,"../lib/three":103,"../utils/":126}],27:[function(require,module,exports){
+},{"../core/component":53,"../lib/three":100,"../utils/":123}],25:[function(require,module,exports){
 /* global Promise */
 var utils = require('../utils/');
 var component = require('../core/component');
@@ -46600,110 +46154,7 @@ function disposeMaterial (material, system) {
   system.unregisterMaterial(material);
 }
 
-},{"../core/component":56,"../core/shader":66,"../lib/three":103,"../utils/":126}],28:[function(require,module,exports){
-var debug = require('../utils/debug');
-var registerComponent = require('../core/component').registerComponent;
-var THREE = require('../lib/three');
-
-var warn = debug('components:obj-model:warn');
-
-module.exports.Component = registerComponent('obj-model', {
-  schema: {
-    mtl: {type: 'model'},
-    obj: {type: 'model'}
-  },
-
-  init: function () {
-    var self = this;
-
-    this.model = null;
-    this.objLoader = new THREE.OBJLoader();
-    this.mtlLoader = new THREE.MTLLoader(this.objLoader.manager);
-    // Allow cross-origin images to be loaded.
-    this.mtlLoader.crossOrigin = '';
-
-    this.el.addEventListener('componentinitialized', function (evt) {
-      if (!self.model) { return; }
-      if (evt.detail.name !== 'material') { return; }
-      self.applyMaterial();
-    });
-  },
-
-  update: function () {
-    var data = this.data;
-    if (!data.obj) { return; }
-    this.resetMesh();
-    this.loadObj(data.obj, data.mtl);
-  },
-
-  remove: function () {
-    if (!this.model) { return; }
-    this.resetMesh();
-  },
-
-  resetMesh: function () {
-    this.el.removeObject3D('mesh');
-  },
-
-  loadObj: function (objUrl, mtlUrl) {
-    var self = this;
-    var el = this.el;
-    var mtlLoader = this.mtlLoader;
-    var objLoader = this.objLoader;
-    var rendererSystem = this.el.sceneEl.systems.renderer;
-    var BASE_PATH = mtlUrl.substr(0, mtlUrl.lastIndexOf('/') + 1);
-
-    if (mtlUrl) {
-      // .OBJ with an .MTL.
-      if (el.hasAttribute('material')) {
-        warn('Material component properties are ignored when a .MTL is provided');
-      }
-      mtlLoader.setResourcePath(BASE_PATH);
-      mtlLoader.load(mtlUrl, function (materials) {
-        materials.preload();
-        objLoader.setMaterials(materials);
-        objLoader.load(objUrl, function (objModel) {
-          self.model = objModel;
-          self.model.traverse(function (object) {
-            if (object.isMesh) {
-              var material = object.material;
-              if (material.color) rendererSystem.applyColorCorrection(material.color);
-              if (material.map) rendererSystem.applyColorCorrection(material.map);
-              if (material.emissive) rendererSystem.applyColorCorrection(material.emissive);
-              if (material.emissiveMap) rendererSystem.applyColorCorrection(material.emissiveMap);
-            }
-          });
-          el.setObject3D('mesh', objModel);
-          el.emit('model-loaded', {format: 'obj', model: objModel});
-        });
-      });
-      return;
-    }
-
-    // .OBJ only.
-    objLoader.load(objUrl, function loadObjOnly (objModel) {
-      self.model = objModel;
-      self.applyMaterial();
-      el.setObject3D('mesh', objModel);
-      el.emit('model-loaded', {format: 'obj', model: objModel});
-    });
-  },
-
-  /**
-   * Apply material from material component recursively.
-   */
-  applyMaterial: function () {
-    var material = this.el.components.material;
-    if (!material) { return; }
-    this.model.traverse(function (child) {
-      if (child instanceof THREE.Mesh) {
-        child.material = material.material;
-      }
-    });
-  }
-});
-
-},{"../core/component":56,"../lib/three":103,"../utils/debug":122}],29:[function(require,module,exports){
+},{"../core/component":53,"../core/shader":63,"../lib/three":100,"../utils/":123}],26:[function(require,module,exports){
 var registerComponent = require('../core/component').registerComponent;
 
 module.exports.Component = registerComponent('position', {
@@ -46723,7 +46174,7 @@ module.exports.Component = registerComponent('position', {
   }
 });
 
-},{"../core/component":56}],30:[function(require,module,exports){
+},{"../core/component":53}],27:[function(require,module,exports){
 /* global MutationObserver */
 
 var registerComponent = require('../core/component').registerComponent;
@@ -47158,7 +46609,7 @@ function copyArray (a, b) {
   }
 }
 
-},{"../core/component":56,"../lib/three":103,"../utils/":126}],31:[function(require,module,exports){
+},{"../core/component":53,"../lib/three":100,"../utils/":123}],28:[function(require,module,exports){
 var degToRad = require('../lib/three').MathUtils.degToRad;
 var registerComponent = require('../core/component').registerComponent;
 
@@ -47183,7 +46634,7 @@ module.exports.Component = registerComponent('rotation', {
   }
 });
 
-},{"../core/component":56,"../lib/three":103}],32:[function(require,module,exports){
+},{"../core/component":53,"../lib/three":100}],29:[function(require,module,exports){
 var registerComponent = require('../core/component').registerComponent;
 
 // Avoids triggering a zero-determinant which makes object3D matrix non-invertible.
@@ -47212,7 +46663,7 @@ module.exports.Component = registerComponent('scale', {
   }
 });
 
-},{"../core/component":56}],33:[function(require,module,exports){
+},{"../core/component":53}],30:[function(require,module,exports){
 /* global THREE */
 var register = require('../../core/component').registerComponent;
 
@@ -47232,14 +46683,14 @@ module.exports.Component = register('background', {
   }
 });
 
-},{"../../core/component":56}],34:[function(require,module,exports){
+},{"../../core/component":53}],31:[function(require,module,exports){
 var register = require('../../core/component').registerComponent;
 
 module.exports.Component = register('debug', {
   schema: {default: true}
 });
 
-},{"../../core/component":56}],35:[function(require,module,exports){
+},{"../../core/component":53}],32:[function(require,module,exports){
 /* global DeviceOrientationEvent, location  */
 var registerComponent = require('../../core/component').registerComponent;
 var utils = require('../../utils/');
@@ -47437,7 +46888,7 @@ function createDialog (text, buttonsContainerEl) {
   return modalContainer;
 }
 
-},{"../../constants/":48,"../../core/component":56,"../../utils/":126}],36:[function(require,module,exports){
+},{"../../constants/":45,"../../core/component":53,"../../utils/":123}],33:[function(require,module,exports){
 var registerComponent = require('../../core/component').registerComponent;
 
 /**
@@ -47462,7 +46913,7 @@ module.exports.Component = registerComponent('embedded', {
 
 });
 
-},{"../../core/component":56}],37:[function(require,module,exports){
+},{"../../core/component":53}],34:[function(require,module,exports){
 var register = require('../../core/component').registerComponent;
 var THREE = require('../../lib/three');
 var debug = require('../../utils/debug');
@@ -47535,7 +46986,7 @@ function getFog (data) {
   return fog;
 }
 
-},{"../../core/component":56,"../../lib/three":103,"../../utils/debug":122}],38:[function(require,module,exports){
+},{"../../core/component":53,"../../lib/three":100,"../../utils/debug":119}],35:[function(require,module,exports){
 (function (process){
 /* global AFRAME */
 var AFRAME_INJECTED = require('../../constants').AFRAME_INJECTED;
@@ -47644,7 +47095,7 @@ module.exports.Component = registerComponent('inspector', {
 
 }).call(this,require('_process'))
 
-},{"../../constants":48,"../../core/component":56,"../../utils/":126,"_process":2}],39:[function(require,module,exports){
+},{"../../constants":45,"../../core/component":53,"../../utils/":123,"_process":2}],36:[function(require,module,exports){
 var registerComponent = require('../../core/component').registerComponent;
 var shouldCaptureKeyEvent = require('../../utils/').shouldCaptureKeyEvent;
 
@@ -47683,7 +47134,7 @@ module.exports.Component = registerComponent('keyboard-shortcuts', {
   }
 });
 
-},{"../../core/component":56,"../../utils/":126}],40:[function(require,module,exports){
+},{"../../core/component":53,"../../utils/":123}],37:[function(require,module,exports){
 var debug = require('../../utils/debug');
 var registerComponent = require('../../core/component').registerComponent;
 
@@ -47801,7 +47252,7 @@ module.exports.Component = registerComponent('pool', {
   }
 });
 
-},{"../../core/component":56,"../../utils/debug":122}],41:[function(require,module,exports){
+},{"../../core/component":53,"../../utils/debug":119}],38:[function(require,module,exports){
 /* global ImageData, URL */
 var registerComponent = require('../../core/component').registerComponent;
 var THREE = require('../../lib/three');
@@ -48066,7 +47517,7 @@ module.exports.Component = registerComponent('screenshot', {
   }
 });
 
-},{"../../core/component":56,"../../lib/three":103}],42:[function(require,module,exports){
+},{"../../core/component":53,"../../lib/three":100}],39:[function(require,module,exports){
 var registerComponent = require('../../core/component').registerComponent;
 var RStats = require('../../../vendor/rStats');
 var utils = require('../../utils');
@@ -48146,7 +47597,7 @@ function createStats (scene) {
   });
 }
 
-},{"../../../vendor/rStats":136,"../../../vendor/rStats.extras":135,"../../core/component":56,"../../lib/rStatsAframe":102,"../../utils":126}],43:[function(require,module,exports){
+},{"../../../vendor/rStats":133,"../../../vendor/rStats.extras":132,"../../core/component":53,"../../lib/rStatsAframe":99,"../../utils":123}],40:[function(require,module,exports){
 var registerComponent = require('../../core/component').registerComponent;
 var constants = require('../../constants/');
 var utils = require('../../utils/');
@@ -48414,7 +47865,7 @@ function applyStickyHoverFix (buttonEl) {
   });
 }
 
-},{"../../constants/":48,"../../core/component":56,"../../utils/":126}],44:[function(require,module,exports){
+},{"../../constants/":45,"../../core/component":53,"../../utils/":123}],41:[function(require,module,exports){
 var component = require('../core/component');
 var THREE = require('../lib/three');
 var bind = require('../utils/bind');
@@ -48468,7 +47919,7 @@ module.exports.Component = registerComponent('shadow', {
   }
 });
 
-},{"../core/component":56,"../lib/three":103,"../utils/bind":120}],45:[function(require,module,exports){
+},{"../core/component":53,"../lib/three":100,"../utils/bind":117}],42:[function(require,module,exports){
 var registerComponent = require('../core/component').registerComponent;
 var debug = require('../utils/debug');
 var THREE = require('../lib/three');
@@ -48719,7 +48170,7 @@ module.exports.Component = registerComponent('sound', {
   }
 });
 
-},{"../core/component":56,"../lib/three":103,"../utils/debug":122}],46:[function(require,module,exports){
+},{"../core/component":53,"../lib/three":100,"../utils/debug":119}],43:[function(require,module,exports){
 var registerComponent = require('../core/component').registerComponent;
 
 /**
@@ -48733,7 +48184,7 @@ module.exports.Component = registerComponent('visible', {
   }
 });
 
-},{"../core/component":56}],47:[function(require,module,exports){
+},{"../core/component":53}],44:[function(require,module,exports){
 var KEYCODE_TO_CODE = require('../constants').keyboardevent.KEYCODE_TO_CODE;
 var registerComponent = require('../core/component').registerComponent;
 var THREE = require('../lib/three');
@@ -48945,7 +48396,7 @@ function isEmptyObject (keys) {
   return true;
 }
 
-},{"../constants":48,"../core/component":56,"../lib/three":103,"../utils/":126}],48:[function(require,module,exports){
+},{"../constants":45,"../core/component":53,"../lib/three":100,"../utils/":123}],45:[function(require,module,exports){
 module.exports = {
   AFRAME_INJECTED: 'aframe-injected',
   DEFAULT_CAMERA_HEIGHT: 1.6,
@@ -48953,7 +48404,7 @@ module.exports = {
   keyboardevent: require('./keyboardevent')
 };
 
-},{"./keyboardevent":49}],49:[function(require,module,exports){
+},{"./keyboardevent":46}],46:[function(require,module,exports){
 module.exports = {
   // Tiny KeyboardEvent.code polyfill.
   KEYCODE_TO_CODE: {
@@ -48968,7 +48419,7 @@ module.exports = {
   }
 };
 
-},{}],50:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 var ANode = require('./a-node');
 var bind = require('../utils/bind');
 var debug = require('../utils/debug');
@@ -49248,7 +48699,7 @@ function getFileNameFromURL (url) {
 }
 module.exports.getFileNameFromURL = getFileNameFromURL;
 
-},{"../lib/three":103,"../utils/bind":120,"../utils/debug":122,"./a-node":54,"./a-register-element":55}],51:[function(require,module,exports){
+},{"../lib/three":100,"../utils/bind":117,"../utils/debug":119,"./a-node":51,"./a-register-element":52}],48:[function(require,module,exports){
 var debug = require('../utils/debug');
 var registerElement = require('./a-register-element').registerElement;
 
@@ -49298,7 +48749,7 @@ module.exports = registerElement('a-cubemap', {
   })
 });
 
-},{"../utils/debug":122,"./a-register-element":55}],52:[function(require,module,exports){
+},{"../utils/debug":119,"./a-register-element":52}],49:[function(require,module,exports){
 var ANode = require('./a-node');
 var COMPONENTS = require('./component').components;
 var registerElement = require('./a-register-element').registerElement;
@@ -50238,7 +49689,7 @@ function getRotation (entityEl) {
 AEntity = registerElement('a-entity', {prototype: proto});
 module.exports = AEntity;
 
-},{"../lib/three":103,"../utils/":126,"./a-node":54,"./a-register-element":55,"./component":56}],53:[function(require,module,exports){
+},{"../lib/three":100,"../utils/":123,"./a-node":51,"./a-register-element":52,"./component":53}],50:[function(require,module,exports){
 var ANode = require('./a-node');
 var registerElement = require('./a-register-element').registerElement;
 var components = require('./component').components;
@@ -50354,7 +49805,7 @@ module.exports = registerElement('a-mixin', {
   })
 });
 
-},{"../utils":126,"./a-node":54,"./a-register-element":55,"./component":56}],54:[function(require,module,exports){
+},{"../utils":123,"./a-node":51,"./a-register-element":52,"./component":53}],51:[function(require,module,exports){
 /* global CustomEvent */
 var registerElement = require('./a-register-element').registerElement;
 var isNode = require('./a-register-element').isNode;
@@ -50625,7 +50076,7 @@ module.exports = registerElement('a-node', {
   })
 });
 
-},{"../utils/":126,"./a-register-element":55}],55:[function(require,module,exports){
+},{"../utils/":123,"./a-register-element":52}],52:[function(require,module,exports){
 /*
   ------------------------------------------------------------
   ------------- WARNING WARNING WARNING WARNING --------------
@@ -50812,7 +50263,7 @@ function copyProperties (source, destination) {
 ANode = require('./a-node');
 AEntity = require('./a-entity');
 
-},{"./a-entity":52,"./a-node":54,"document-register-element":6}],56:[function(require,module,exports){
+},{"./a-entity":49,"./a-node":51,"document-register-element":6}],53:[function(require,module,exports){
 /* global Node */
 var schema = require('./schema');
 var scenes = require('./scene/scenes');
@@ -51617,7 +51068,7 @@ function isObjectOrArray (value) {
          !(value instanceof window.HTMLElement);
 }
 
-},{"../utils/":126,"./scene/scenes":63,"./schema":65,"./system":67}],57:[function(require,module,exports){
+},{"../utils/":123,"./scene/scenes":60,"./schema":62,"./system":64}],54:[function(require,module,exports){
 var schema = require('./schema');
 
 var processSchema = schema.process;
@@ -51691,7 +51142,7 @@ module.exports.registerGeometry = function (name, definition) {
   return NewGeometry;
 };
 
-},{"../lib/three":103,"./schema":65}],58:[function(require,module,exports){
+},{"../lib/three":100,"./schema":62}],55:[function(require,module,exports){
 var coordinates = require('../utils/coordinates');
 var debug = require('debug');
 
@@ -51916,7 +51367,7 @@ function isValidDefaultCoordinate (possibleCoordinates, dimensions) {
 }
 module.exports.isValidDefaultCoordinate = isValidDefaultCoordinate;
 
-},{"../utils/coordinates":121,"debug":3}],59:[function(require,module,exports){
+},{"../utils/coordinates":118,"debug":3}],56:[function(require,module,exports){
 /* global Promise, screen, CustomEvent */
 var initMetaTags = require('./metaTags').inject;
 var initWakelock = require('./wakelock');
@@ -52929,7 +52380,7 @@ function setupCanvas (sceneEl) {
 }
 module.exports.setupCanvas = setupCanvas;  // For testing.
 
-},{"../../lib/three":103,"../../utils/":126,"../a-entity":52,"../a-node":54,"../a-register-element":55,"../shader":66,"../system":67,"./loadingScreen":60,"./metaTags":61,"./postMessage":62,"./scenes":63,"./wakelock":64}],60:[function(require,module,exports){
+},{"../../lib/three":100,"../../utils/":123,"../a-entity":49,"../a-node":51,"../a-register-element":52,"../shader":63,"../system":64,"./loadingScreen":57,"./metaTags":58,"./postMessage":59,"./scenes":60,"./wakelock":61}],57:[function(require,module,exports){
 /* global THREE */
 var utils = require('../../utils/');
 var styleParser = utils.styleParser;
@@ -53023,7 +52474,7 @@ function setupTitle () {
   sceneEl.appendChild(titleEl);
 }
 
-},{"../../utils/":126}],61:[function(require,module,exports){
+},{"../../utils/":123}],58:[function(require,module,exports){
 var constants = require('../../constants/');
 var extend = require('../../utils').extend;
 
@@ -53104,7 +52555,7 @@ function createTag (tagObj) {
   return extend(meta, tagObj.attributes);
 }
 
-},{"../../constants/":48,"../../utils":126}],62:[function(require,module,exports){
+},{"../../constants/":45,"../../utils":123}],59:[function(require,module,exports){
 var bind = require('../../utils/bind');
 var isIframed = require('../../utils/').isIframed;
 
@@ -53137,13 +52588,13 @@ function postMessageAPIHandler (event) {
   }
 }
 
-},{"../../utils/":126,"../../utils/bind":120}],63:[function(require,module,exports){
+},{"../../utils/":123,"../../utils/bind":117}],60:[function(require,module,exports){
 /*
   Scene index for keeping track of created scenes.
 */
 module.exports = [];
 
-},{}],64:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 var Wakelock = require('../../../vendor/wakelock/wakelock');
 
 module.exports = function initWakelock (scene) {
@@ -53154,7 +52605,7 @@ module.exports = function initWakelock (scene) {
   scene.addEventListener('exit-vr', function () { wakelock.release(); });
 };
 
-},{"../../../vendor/wakelock/wakelock":138}],65:[function(require,module,exports){
+},{"../../../vendor/wakelock/wakelock":135}],62:[function(require,module,exports){
 var utils = require('../utils/');
 var PropertyTypes = require('./propertyTypes');
 
@@ -53358,7 +52809,7 @@ function stringifyProperty (value, propDefinition) {
 }
 module.exports.stringifyProperty = stringifyProperty;
 
-},{"../utils/":126,"./propertyTypes":58}],66:[function(require,module,exports){
+},{"../utils/":123,"./propertyTypes":55}],63:[function(require,module,exports){
 var schema = require('./schema');
 
 var processSchema = schema.process;
@@ -53547,7 +52998,7 @@ module.exports.registerShader = function (name, definition) {
   return NewShader;
 };
 
-},{"../lib/three":103,"../utils":126,"./schema":65}],67:[function(require,module,exports){
+},{"../lib/three":100,"../utils":123,"./schema":62}],64:[function(require,module,exports){
 var components = require('./component');
 var schema = require('./schema');
 var utils = require('../utils/');
@@ -53705,10 +53156,10 @@ module.exports.registerSystem = function (name, definition) {
   for (i = 0; i < scenes.length; i++) { scenes[i].initSystem(name); }
 };
 
-},{"../utils/":126,"./component":56,"./schema":65}],68:[function(require,module,exports){
+},{"../utils/":123,"./component":53,"./schema":62}],65:[function(require,module,exports){
 require('./pivot');
 
-},{"./pivot":69}],69:[function(require,module,exports){
+},{"./pivot":66}],66:[function(require,module,exports){
 var registerComponent = require('../../core/component').registerComponent;
 var THREE = require('../../lib/three');
 
@@ -53757,7 +53208,7 @@ registerComponent('pivot', {
   }
 });
 
-},{"../../core/component":56,"../../lib/three":103}],70:[function(require,module,exports){
+},{"../../core/component":53,"../../lib/three":100}],67:[function(require,module,exports){
 /**
  * Common mesh defaults, mappings, and transforms.
  */
@@ -53784,7 +53235,7 @@ module.exports = function getMeshMixin () {
   };
 };
 
-},{"../../core/component":56,"../../core/shader":66,"../../utils/":126}],71:[function(require,module,exports){
+},{"../../core/component":53,"../../core/shader":63,"../../utils/":123}],68:[function(require,module,exports){
 require('./primitives/a-camera');
 require('./primitives/a-cursor');
 require('./primitives/a-curvedimage');
@@ -53799,7 +53250,7 @@ require('./primitives/a-video');
 require('./primitives/a-videosphere');
 require('./primitives/meshPrimitives');
 
-},{"./primitives/a-camera":73,"./primitives/a-cursor":74,"./primitives/a-curvedimage":75,"./primitives/a-gltf-model":76,"./primitives/a-image":77,"./primitives/a-light":78,"./primitives/a-link":79,"./primitives/a-obj-model":80,"./primitives/a-sky":81,"./primitives/a-sound":82,"./primitives/a-video":83,"./primitives/a-videosphere":84,"./primitives/meshPrimitives":85}],72:[function(require,module,exports){
+},{"./primitives/a-camera":70,"./primitives/a-cursor":71,"./primitives/a-curvedimage":72,"./primitives/a-gltf-model":73,"./primitives/a-image":74,"./primitives/a-light":75,"./primitives/a-link":76,"./primitives/a-obj-model":77,"./primitives/a-sky":78,"./primitives/a-sound":79,"./primitives/a-video":80,"./primitives/a-videosphere":81,"./primitives/meshPrimitives":82}],69:[function(require,module,exports){
 var AEntity = require('../../core/a-entity');
 var components = require('../../core/component').components;
 var registerElement = require('../../core/a-register-element').registerElement;
@@ -53998,7 +53449,7 @@ function definePrimitive (tagName, defaultComponents, mappings) {
 }
 module.exports.definePrimitive = definePrimitive;
 
-},{"../../core/a-entity":52,"../../core/a-register-element":55,"../../core/component":56,"../../utils/":126}],73:[function(require,module,exports){
+},{"../../core/a-entity":49,"../../core/a-register-element":52,"../../core/component":53,"../../utils/":123}],70:[function(require,module,exports){
 var registerPrimitive = require('../primitives').registerPrimitive;
 
 registerPrimitive('a-camera', {
@@ -54022,7 +53473,7 @@ registerPrimitive('a-camera', {
   }
 });
 
-},{"../primitives":72}],74:[function(require,module,exports){
+},{"../primitives":69}],71:[function(require,module,exports){
 var getMeshMixin = require('../getMeshMixin');
 var registerPrimitive = require('../primitives').registerPrimitive;
 var utils = require('../../../utils/');
@@ -54057,7 +53508,7 @@ registerPrimitive('a-cursor', utils.extendDeep({}, getMeshMixin(), {
   }
 }));
 
-},{"../../../utils/":126,"../getMeshMixin":70,"../primitives":72}],75:[function(require,module,exports){
+},{"../../../utils/":123,"../getMeshMixin":67,"../primitives":69}],72:[function(require,module,exports){
 var getMeshMixin = require('../getMeshMixin');
 var registerPrimitive = require('../primitives').registerPrimitive;
 var utils = require('../../../utils/');
@@ -54094,7 +53545,7 @@ registerPrimitive('a-curvedimage', utils.extendDeep({}, getMeshMixin(), {
   }
 }));
 
-},{"../../../utils/":126,"../getMeshMixin":70,"../primitives":72}],76:[function(require,module,exports){
+},{"../../../utils/":123,"../getMeshMixin":67,"../primitives":69}],73:[function(require,module,exports){
 var registerPrimitive = require('../primitives').registerPrimitive;
 
 registerPrimitive('a-gltf-model', {
@@ -54103,7 +53554,7 @@ registerPrimitive('a-gltf-model', {
   }
 });
 
-},{"../primitives":72}],77:[function(require,module,exports){
+},{"../primitives":69}],74:[function(require,module,exports){
 var getMeshMixin = require('../getMeshMixin');
 var registerPrimitive = require('../primitives').registerPrimitive;
 var utils = require('../../../utils/');
@@ -54127,7 +53578,7 @@ registerPrimitive('a-image', utils.extendDeep({}, getMeshMixin(), {
   }
 }));
 
-},{"../../../utils/":126,"../getMeshMixin":70,"../primitives":72}],78:[function(require,module,exports){
+},{"../../../utils/":123,"../getMeshMixin":67,"../primitives":69}],75:[function(require,module,exports){
 var registerPrimitive = require('../primitives').registerPrimitive;
 
 registerPrimitive('a-light', {
@@ -54148,7 +53599,7 @@ registerPrimitive('a-light', {
   }
 });
 
-},{"../primitives":72}],79:[function(require,module,exports){
+},{"../primitives":69}],76:[function(require,module,exports){
 var registerPrimitive = require('../primitives').registerPrimitive;
 
 registerPrimitive('a-link', {
@@ -54165,7 +53616,7 @@ registerPrimitive('a-link', {
   }
 });
 
-},{"../primitives":72}],80:[function(require,module,exports){
+},{"../primitives":69}],77:[function(require,module,exports){
 var meshMixin = require('../getMeshMixin')();
 var registerPrimitive = require('../primitives').registerPrimitive;
 var utils = require('../../../utils/');
@@ -54181,7 +53632,7 @@ registerPrimitive('a-obj-model', utils.extendDeep({}, meshMixin, {
   }
 }));
 
-},{"../../../utils/":126,"../getMeshMixin":70,"../primitives":72}],81:[function(require,module,exports){
+},{"../../../utils/":123,"../getMeshMixin":67,"../primitives":69}],78:[function(require,module,exports){
 var getMeshMixin = require('../getMeshMixin');
 var registerPrimitive = require('../primitives').registerPrimitive;
 var utils = require('../../../utils/');
@@ -54207,7 +53658,7 @@ registerPrimitive('a-sky', utils.extendDeep({}, getMeshMixin(), {
   mappings: utils.extendDeep({}, meshPrimitives['a-sphere'].prototype.mappings)
 }));
 
-},{"../../../utils/":126,"../getMeshMixin":70,"../primitives":72,"./meshPrimitives":85}],82:[function(require,module,exports){
+},{"../../../utils/":123,"../getMeshMixin":67,"../primitives":69,"./meshPrimitives":82}],79:[function(require,module,exports){
 var registerPrimitive = require('../primitives').registerPrimitive;
 
 registerPrimitive('a-sound', {
@@ -54224,7 +53675,7 @@ registerPrimitive('a-sound', {
   }
 });
 
-},{"../primitives":72}],83:[function(require,module,exports){
+},{"../primitives":69}],80:[function(require,module,exports){
 var getMeshMixin = require('../getMeshMixin');
 var registerPrimitive = require('../primitives').registerPrimitive;
 var utils = require('../../../utils/');
@@ -54248,7 +53699,7 @@ registerPrimitive('a-video', utils.extendDeep({}, getMeshMixin(), {
   }
 }));
 
-},{"../../../utils/":126,"../getMeshMixin":70,"../primitives":72}],84:[function(require,module,exports){
+},{"../../../utils/":123,"../getMeshMixin":67,"../primitives":69}],81:[function(require,module,exports){
 var getMeshMixin = require('../getMeshMixin');
 var registerPrimitive = require('../primitives').registerPrimitive;
 var utils = require('../../../utils/');
@@ -54277,7 +53728,7 @@ registerPrimitive('a-videosphere', utils.extendDeep({}, getMeshMixin(), {
   }
 }));
 
-},{"../../../utils/":126,"../getMeshMixin":70,"../primitives":72}],85:[function(require,module,exports){
+},{"../../../utils/":123,"../getMeshMixin":67,"../primitives":69}],82:[function(require,module,exports){
 /**
  * Automated mesh primitive registration.
  */
@@ -54317,7 +53768,7 @@ function unCamelCase (str) {
   return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
 }
 
-},{"../../../core/geometry":57,"../../../utils/":126,"../getMeshMixin":70,"../primitives":72}],86:[function(require,module,exports){
+},{"../../../core/geometry":54,"../../../utils/":123,"../getMeshMixin":67,"../primitives":69}],83:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54338,7 +53789,7 @@ registerGeometry('box', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],87:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],84:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54358,7 +53809,7 @@ registerGeometry('circle', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],88:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],85:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54384,7 +53835,7 @@ registerGeometry('cone', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],89:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],86:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54408,7 +53859,7 @@ registerGeometry('cylinder', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],90:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],87:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54423,7 +53874,7 @@ registerGeometry('dodecahedron', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],91:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],88:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54438,7 +53889,7 @@ registerGeometry('icosahedron', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],92:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],89:[function(require,module,exports){
 require('./box.js');
 require('./circle.js');
 require('./cone.js');
@@ -54454,7 +53905,7 @@ require('./torus.js');
 require('./torusKnot.js');
 require('./triangle.js');
 
-},{"./box.js":86,"./circle.js":87,"./cone.js":88,"./cylinder.js":89,"./dodecahedron.js":90,"./icosahedron.js":91,"./octahedron.js":93,"./plane.js":94,"./ring.js":95,"./sphere.js":96,"./tetrahedron.js":97,"./torus.js":98,"./torusKnot.js":99,"./triangle.js":100}],93:[function(require,module,exports){
+},{"./box.js":83,"./circle.js":84,"./cone.js":85,"./cylinder.js":86,"./dodecahedron.js":87,"./icosahedron.js":88,"./octahedron.js":90,"./plane.js":91,"./ring.js":92,"./sphere.js":93,"./tetrahedron.js":94,"./torus.js":95,"./torusKnot.js":96,"./triangle.js":97}],90:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54469,7 +53920,7 @@ registerGeometry('octahedron', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],94:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],91:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54486,7 +53937,7 @@ registerGeometry('plane', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],95:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],92:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54509,7 +53960,7 @@ registerGeometry('ring', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],96:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],93:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54533,7 +53984,7 @@ registerGeometry('sphere', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],97:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],94:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54548,7 +53999,7 @@ registerGeometry('tetrahedron', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],98:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],95:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54570,7 +54021,7 @@ registerGeometry('torus', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],99:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],96:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54591,7 +54042,7 @@ registerGeometry('torusKnot', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],100:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],97:[function(require,module,exports){
 var registerGeometry = require('../core/geometry').registerGeometry;
 var THREE = require('../lib/three');
 
@@ -54646,7 +54097,7 @@ registerGeometry('triangle', {
   }
 });
 
-},{"../core/geometry":57,"../lib/three":103}],101:[function(require,module,exports){
+},{"../core/geometry":54,"../lib/three":100}],98:[function(require,module,exports){
 // WebVR polyfill
 // Check before the polyfill runs.
 window.hasNativeWebVRImplementation = !!window.navigator.getVRDisplays ||
@@ -54763,7 +54214,7 @@ module.exports = window.AFRAME = {
   version: 'hubs/master'
 };
 
-},{"../package":13,"./components/index":21,"./core/a-assets":50,"./core/a-cubemap":51,"./core/a-entity":52,"./core/a-mixin":53,"./core/a-node":54,"./core/a-register-element":55,"./core/component":56,"./core/geometry":57,"./core/scene/a-scene":59,"./core/scene/scenes":63,"./core/schema":65,"./core/shader":66,"./core/system":67,"./extras/components/":68,"./extras/primitives/":71,"./extras/primitives/getMeshMixin":70,"./extras/primitives/primitives":72,"./geometries/index":92,"./lib/three":103,"./shaders/index":105,"./style/aframe.css":110,"./style/rStats.css":111,"./systems/index":115,"./utils/":126,"./utils/isIOSOlderThan10":128,"present":9,"super-animejs":10,"webvr-polyfill":12}],102:[function(require,module,exports){
+},{"../package":13,"./components/index":19,"./core/a-assets":47,"./core/a-cubemap":48,"./core/a-entity":49,"./core/a-mixin":50,"./core/a-node":51,"./core/a-register-element":52,"./core/component":53,"./core/geometry":54,"./core/scene/a-scene":56,"./core/scene/scenes":60,"./core/schema":62,"./core/shader":63,"./core/system":64,"./extras/components/":65,"./extras/primitives/":68,"./extras/primitives/getMeshMixin":67,"./extras/primitives/primitives":69,"./geometries/index":89,"./lib/three":100,"./shaders/index":102,"./style/aframe.css":107,"./style/rStats.css":108,"./systems/index":112,"./utils/":123,"./utils/isIOSOlderThan10":125,"present":9,"super-animejs":10,"webvr-polyfill":12}],99:[function(require,module,exports){
 window.aframeStats = function (scene) {
   var _rS = null;
   var _scene = scene;
@@ -54820,7 +54271,7 @@ if (typeof module === 'object') {
   };
 }
 
-},{}],103:[function(require,module,exports){
+},{}],100:[function(require,module,exports){
 (function (global){
 var THREE = global.THREE = require('three');
 
@@ -54841,7 +54292,7 @@ module.exports = THREE;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 
-},{"three":11}],104:[function(require,module,exports){
+},{"three":11}],101:[function(require,module,exports){
 var registerShader = require('../core/shader').registerShader;
 var THREE = require('../lib/three');
 var utils = require('../utils/');
@@ -54911,14 +54362,14 @@ function getMaterialData (data, materialData) {
   return materialData;
 }
 
-},{"../core/shader":66,"../lib/three":103,"../utils/":126}],105:[function(require,module,exports){
+},{"../core/shader":63,"../lib/three":100,"../utils/":123}],102:[function(require,module,exports){
 require('./flat');
 require('./standard');
 require('./sdf');
 require('./msdf');
 require('./ios10hls');
 
-},{"./flat":104,"./ios10hls":106,"./msdf":107,"./sdf":108,"./standard":109}],106:[function(require,module,exports){
+},{"./flat":101,"./ios10hls":103,"./msdf":104,"./sdf":105,"./standard":106}],103:[function(require,module,exports){
 var registerShader = require('../core/shader').registerShader;
 
 /**
@@ -54953,7 +54404,7 @@ module.exports.Shader = registerShader('ios10hls', {
 });
 
 
-},{"../core/shader":66}],107:[function(require,module,exports){
+},{"../core/shader":63}],104:[function(require,module,exports){
 var registerShader = require('../core/shader').registerShader;
 
 /**
@@ -55039,7 +54490,7 @@ module.exports.Shader = registerShader('msdf', {
   ].join('\n')
 });
 
-},{"../core/shader":66}],108:[function(require,module,exports){
+},{"../core/shader":63}],105:[function(require,module,exports){
 var registerShader = require('../core/shader').registerShader;
 
 /**
@@ -55163,7 +54614,7 @@ module.exports.Shader = registerShader('sdf', {
   ].join('\n')
 });
 
-},{"../core/shader":66}],109:[function(require,module,exports){
+},{"../core/shader":63}],106:[function(require,module,exports){
 var registerShader = require('../core/shader').registerShader;
 var THREE = require('../lib/three');
 var utils = require('../utils/');
@@ -55355,11 +54806,11 @@ function getMaterialData (data, materialData) {
   return materialData;
 }
 
-},{"../core/shader":66,"../lib/three":103,"../utils/":126}],110:[function(require,module,exports){
+},{"../core/shader":63,"../lib/three":100,"../utils/":123}],107:[function(require,module,exports){
 var css = "html.a-fullscreen{bottom:0;left:0;position:fixed;right:0;top:0}html.a-fullscreen body{height:100%;margin:0;overflow:hidden;padding:0;width:100%}html.a-fullscreen .a-canvas{width:100%!important;height:100%!important;top:0!important;left:0!important;right:0!important;bottom:0!important;position:fixed!important}html:not(.a-fullscreen) .a-enter-ar,html:not(.a-fullscreen) .a-enter-vr{right:5px;bottom:5px}:-webkit-full-screen{background-color:transparent}.a-hidden{display:none!important}.a-canvas{height:100%;left:0;position:absolute;top:0;width:100%}.a-canvas.a-grab-cursor:hover{cursor:grab;cursor:-moz-grab;cursor:-webkit-grab}canvas.a-canvas.a-mouse-cursor-hover:hover{cursor:pointer}.a-inspector-loader{background-color:#ed3160;position:fixed;left:3px;top:3px;padding:6px 10px;color:#fff;text-decoration:none;font-size:12px;font-family:Roboto,sans-serif;text-align:center;z-index:99999;width:204px}@keyframes dots-1{from{opacity:0}25%{opacity:1}}@keyframes dots-2{from{opacity:0}50%{opacity:1}}@keyframes dots-3{from{opacity:0}75%{opacity:1}}@-webkit-keyframes dots-1{from{opacity:0}25%{opacity:1}}@-webkit-keyframes dots-2{from{opacity:0}50%{opacity:1}}@-webkit-keyframes dots-3{from{opacity:0}75%{opacity:1}}.a-inspector-loader .dots span{animation:dots-1 2s infinite steps(1);-webkit-animation:dots-1 2s infinite steps(1)}.a-inspector-loader .dots span:first-child+span{animation-name:dots-2;-webkit-animation-name:dots-2}.a-inspector-loader .dots span:first-child+span+span{animation-name:dots-3;-webkit-animation-name:dots-3}a-scene{display:block;position:relative;height:100%;width:100%}a-assets,a-scene audio,a-scene img,a-scene video{display:none}.a-enter-vr-modal,.a-orientation-modal{font-family:Consolas,Andale Mono,Courier New,monospace}.a-enter-vr-modal a{border-bottom:1px solid #fff;padding:2px 0;text-decoration:none;transition:.1s color ease-in}.a-enter-vr-modal a:hover{background-color:#fff;color:#111;padding:2px 4px;position:relative;left:-4px}.a-enter-ar,.a-enter-vr{font-family:sans-serif,monospace;font-size:13px;width:100%;font-weight:200;line-height:16px;position:absolute;right:20px;bottom:20px}.a-enter-ar{right:80px}.a-enter-vr-button,.a-enter-vr-modal,.a-enter-vr-modal a{color:#fff;user-select:none;outline:0}.a-enter-vr-button{background:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='108' height='62' viewBox='0 0 108 62'%3E%3Ctitle%3Eaframe-vrmode-noborder-reduced-tracking%3C/title%3E%3Cpath d='M68.81,21.56H64.23v8.27h4.58a4.13,4.13,0,0,0,3.1-1.09,4.2,4.2,0,0,0,1-3,4.24,4.24,0,0,0-1-3A4.05,4.05,0,0,0,68.81,21.56Z' fill='%23fff'/%3E%3Cpath d='M96,0H12A12,12,0,0,0,0,12V50A12,12,0,0,0,12,62H96a12,12,0,0,0,12-12V12A12,12,0,0,0,96,0ZM41.9,46H34L24,16h8l6,21.84,6-21.84H52Zm39.29,0H73.44L68.15,35.39H64.23V46H57V16H68.81q5.32,0,8.34,2.37a8,8,0,0,1,3,6.69,9.68,9.68,0,0,1-1.27,5.18,8.9,8.9,0,0,1-4,3.34l6.26,12.11Z' fill='%23fff'/%3E%3C/svg%3E\") 50% 50% no-repeat rgba(0,0,0,.35)}.a-enter-ar-button{background:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='108' height='62' viewBox='0 0 108 62'%3E%3Ctitle%3Eaframe-armode-noborder-reduced-tracking%3C/title%3E%3Cpath d='M96,0H12A12,12,0,0,0,0,12V50A12,12,0,0,0,12,62H96a12,12,0,0,0,12-12V12A12,12,0,0,0,96,0Zm8,50a8,8,0,0,1-8,8H12a8,8,0,0,1-8-8V12a8,8,0,0,1,8-8H96a8,8,0,0,1,8,8Z' fill='%23fff'/%3E%3Cpath d='M43.35,39.82H32.51L30.45,46H23.88L35,16h5.73L52,46H45.43Zm-9.17-5h7.5L37.91,23.58Z' fill='%23fff'/%3E%3Cpath d='M68.11,35H63.18V46H57V16H68.15q5.31,0,8.2,2.37a8.18,8.18,0,0,1,2.88,6.7,9.22,9.22,0,0,1-1.33,5.12,9.09,9.09,0,0,1-4,3.26l6.49,12.26V46H73.73Zm-4.93-5h5a5.09,5.09,0,0,0,3.6-1.18,4.21,4.21,0,0,0,1.28-3.27,4.56,4.56,0,0,0-1.2-3.34A5,5,0,0,0,68.15,21h-5Z' fill='%23fff'/%3E%3C/svg%3E\") 50% 50% no-repeat rgba(0,0,0,.2)}.a-enter-ar-button,.a-enter-vr-button{background-size:90% 90%;border:0;bottom:0;cursor:pointer;min-width:58px;min-height:34px;padding-right:0;padding-top:0;position:absolute;right:0;transition:background-color .05s ease;-webkit-transition:background-color .05s ease;z-index:9999;border-radius:8px;touch-action:manipulation}.a-enter-ar-button{background-size:100% 90%;margin-right:10px;border-radius:7px}.a-enter-ar-button:active,.a-enter-ar-button:hover,.a-enter-vr-button:active,.a-enter-vr-button:hover{background-color:#ef2d5e}.a-enter-vr-button.resethover{background-color:rgba(0,0,0,.35)}[data-a-enter-vr-no-webvr] .a-enter-vr-button{border-color:#666;opacity:.65}[data-a-enter-vr-no-webvr] .a-enter-vr-button:active,[data-a-enter-vr-no-webvr] .a-enter-vr-button:hover{background-color:rgba(0,0,0,.35);cursor:not-allowed}.a-enter-vr-modal{background-color:#666;border-radius:0;display:none;min-height:32px;margin-right:70px;padding:9px;width:280px;right:2%;position:absolute}.a-enter-vr-modal:after{border-bottom:10px solid transparent;border-left:10px solid #666;border-top:10px solid transparent;display:inline-block;content:'';position:absolute;right:-5px;top:5px;width:0;height:0}.a-enter-vr-modal a,.a-enter-vr-modal p{display:inline}.a-enter-vr-modal p{margin:0}.a-enter-vr-modal p:after{content:' '}[data-a-enter-vr-no-headset].a-enter-vr:hover .a-enter-vr-modal,[data-a-enter-vr-no-webvr].a-enter-vr:hover .a-enter-vr-modal{display:block}.a-orientation-modal{background:url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20xmlns%3Axlink%3D%22http%3A//www.w3.org/1999/xlink%22%20version%3D%221.1%22%20x%3D%220px%22%20y%3D%220px%22%20viewBox%3D%220%200%2090%2090%22%20enable-background%3D%22new%200%200%2090%2090%22%20xml%3Aspace%3D%22preserve%22%3E%3Cpolygon%20points%3D%220%2C0%200%2C0%200%2C0%20%22%3E%3C/polygon%3E%3Cg%3E%3Cpath%20d%3D%22M71.545%2C48.145h-31.98V20.743c0-2.627-2.138-4.765-4.765-4.765H18.456c-2.628%2C0-4.767%2C2.138-4.767%2C4.765v42.789%20%20%20c0%2C2.628%2C2.138%2C4.766%2C4.767%2C4.766h5.535v0.959c0%2C2.628%2C2.138%2C4.765%2C4.766%2C4.765h42.788c2.628%2C0%2C4.766-2.137%2C4.766-4.765V52.914%20%20%20C76.311%2C50.284%2C74.173%2C48.145%2C71.545%2C48.145z%20M18.455%2C16.935h16.344c2.1%2C0%2C3.808%2C1.708%2C3.808%2C3.808v27.401H37.25V22.636%20%20%20c0-0.264-0.215-0.478-0.479-0.478H16.482c-0.264%2C0-0.479%2C0.214-0.479%2C0.478v36.585c0%2C0.264%2C0.215%2C0.478%2C0.479%2C0.478h7.507v7.644%20%20%20h-5.534c-2.101%2C0-3.81-1.709-3.81-3.81V20.743C14.645%2C18.643%2C16.354%2C16.935%2C18.455%2C16.935z%20M16.96%2C23.116h19.331v25.031h-7.535%20%20%20c-2.628%2C0-4.766%2C2.139-4.766%2C4.768v5.828h-7.03V23.116z%20M71.545%2C73.064H28.757c-2.101%2C0-3.81-1.708-3.81-3.808V52.914%20%20%20c0-2.102%2C1.709-3.812%2C3.81-3.812h42.788c2.1%2C0%2C3.809%2C1.71%2C3.809%2C3.812v16.343C75.354%2C71.356%2C73.645%2C73.064%2C71.545%2C73.064z%22%3E%3C/path%3E%3Cpath%20d%3D%22M28.919%2C58.424c-1.466%2C0-2.659%2C1.193-2.659%2C2.66c0%2C1.466%2C1.193%2C2.658%2C2.659%2C2.658c1.468%2C0%2C2.662-1.192%2C2.662-2.658%20%20%20C31.581%2C59.617%2C30.387%2C58.424%2C28.919%2C58.424z%20M28.919%2C62.786c-0.939%2C0-1.703-0.764-1.703-1.702c0-0.939%2C0.764-1.704%2C1.703-1.704%20%20%20c0.94%2C0%2C1.705%2C0.765%2C1.705%2C1.704C30.623%2C62.022%2C29.858%2C62.786%2C28.919%2C62.786z%22%3E%3C/path%3E%3Cpath%20d%3D%22M69.654%2C50.461H33.069c-0.264%2C0-0.479%2C0.215-0.479%2C0.479v20.288c0%2C0.264%2C0.215%2C0.478%2C0.479%2C0.478h36.585%20%20%20c0.263%2C0%2C0.477-0.214%2C0.477-0.478V50.939C70.131%2C50.676%2C69.917%2C50.461%2C69.654%2C50.461z%20M69.174%2C51.417V70.75H33.548V51.417H69.174z%22%3E%3C/path%3E%3Cpath%20d%3D%22M45.201%2C30.296c6.651%2C0%2C12.233%2C5.351%2C12.551%2C11.977l-3.033-2.638c-0.193-0.165-0.507-0.142-0.675%2C0.048%20%20%20c-0.174%2C0.198-0.153%2C0.501%2C0.045%2C0.676l3.883%2C3.375c0.09%2C0.075%2C0.198%2C0.115%2C0.312%2C0.115c0.141%2C0%2C0.273-0.061%2C0.362-0.166%20%20%20l3.371-3.877c0.173-0.2%2C0.151-0.502-0.047-0.675c-0.194-0.166-0.508-0.144-0.676%2C0.048l-2.592%2C2.979%20%20%20c-0.18-3.417-1.629-6.605-4.099-9.001c-2.538-2.461-5.877-3.817-9.404-3.817c-0.264%2C0-0.479%2C0.215-0.479%2C0.479%20%20%20C44.72%2C30.083%2C44.936%2C30.296%2C45.201%2C30.296z%22%3E%3C/path%3E%3C/g%3E%3C/svg%3E) center/50% 50% no-repeat rgba(244,244,244,1);bottom:0;font-size:14px;font-weight:600;left:0;line-height:20px;right:0;position:fixed;top:0;z-index:9999999}.a-orientation-modal:after{color:#666;content:\"Insert phone into Cardboard holder.\";display:block;position:absolute;text-align:center;top:70%;transform:translateY(-70%);width:100%}.a-orientation-modal button{background:url(data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20xmlns%3Axlink%3D%22http%3A//www.w3.org/1999/xlink%22%20version%3D%221.1%22%20x%3D%220px%22%20y%3D%220px%22%20viewBox%3D%220%200%20100%20100%22%20enable-background%3D%22new%200%200%20100%20100%22%20xml%3Aspace%3D%22preserve%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M55.209%2C50l17.803-17.803c1.416-1.416%2C1.416-3.713%2C0-5.129c-1.416-1.417-3.713-1.417-5.129%2C0L50.08%2C44.872%20%20L32.278%2C27.069c-1.416-1.417-3.714-1.417-5.129%2C0c-1.417%2C1.416-1.417%2C3.713%2C0%2C5.129L44.951%2C50L27.149%2C67.803%20%20c-1.417%2C1.416-1.417%2C3.713%2C0%2C5.129c0.708%2C0.708%2C1.636%2C1.062%2C2.564%2C1.062c0.928%2C0%2C1.856-0.354%2C2.564-1.062L50.08%2C55.13l17.803%2C17.802%20%20c0.708%2C0.708%2C1.637%2C1.062%2C2.564%2C1.062s1.856-0.354%2C2.564-1.062c1.416-1.416%2C1.416-3.713%2C0-5.129L55.209%2C50z%22%3E%3C/path%3E%3C/svg%3E) no-repeat;border:none;height:50px;text-indent:-9999px;width:50px}.a-loader-title{background-color:rgba(0,0,0,.6);font-family:sans-serif,monospace;text-align:center;font-size:20px;height:50px;font-weight:300;line-height:50px;position:absolute;right:0;left:0;top:0;color:#fff}.a-modal{background:0 0/50% 50% rgba(0,0,0,.6);bottom:0;font-size:14px;font-weight:600;left:0;line-height:20px;right:0;position:fixed;top:0;z-index:9999999}.a-dialog{position:relative;left:50%;top:50%;transform:translate(-50%,-50%);z-index:199995;width:300px;height:200px;background-size:contain;background-color:#fff;font-family:sans-serif,monospace;font-size:20px;border-radius:3px;padding:6px}.a-dialog-text-container{width:100%;height:70%;align-self:flex-start;display:flex;justify-content:center;align-content:center;flex-direction:column}.a-dialog-text{display:inline-block;font-weight:400;font-size:14pt;margin:8px}.a-dialog-buttons-container{display:inline-flex;align-self:flex-end;width:100%;height:30%}.a-dialog-button{cursor:pointer;align-self:center;opacity:.9;height:80%;width:50%;font-size:12pt;margin:4px;border-radius:2px;text-align:center;border:none;display:inline-block;-webkit-transition:all .25s ease-in-out;transition:all .25s ease-in-out;box-shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.2);user-select:none}.a-dialog-permission-button:hover{box-shadow:0 7px 14px rgba(0,0,0,.2),0 2px 2px rgba(0,0,0,.2)}.a-dialog-allow-button{background-color:#00ceff}.a-dialog-deny-button{background-color:#ff005b}.a-dialog-ok-button{background-color:#00ceff;width:100%}"; (require("browserify-css").createStyle(css, { "href": "src/style/aframe.css"})); module.exports = css;
-},{"browserify-css":1}],111:[function(require,module,exports){
+},{"browserify-css":1}],108:[function(require,module,exports){
 var css = ".rs-base{background-color:#333;color:#fafafa;border-radius:0;font:10px monospace;left:5px;line-height:1em;opacity:.85;overflow:hidden;padding:10px;position:fixed;top:5px;width:300px;z-index:10000}.rs-base div.hidden{display:none}.rs-base h1{color:#fff;cursor:pointer;font-size:1.4em;font-weight:300;margin:0 0 5px;padding:0}.rs-group{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-direction:column-reverse;flex-direction:column-reverse;margin-bottom:5px}.rs-group:last-child{margin-bottom:0}.rs-counter-base{align-items:center;display:-webkit-box;display:-webkit-flex;display:flex;height:10px;-webkit-justify-content:space-between;justify-content:space-between;margin:2px 0}.rs-counter-base.alarm{color:#b70000;text-shadow:0 0 0 #b70000,0 0 1px #fff,0 0 1px #fff,0 0 2px #fff,0 0 2px #fff,0 0 3px #fff,0 0 3px #fff,0 0 4px #fff,0 0 4px #fff}.rs-counter-id{font-weight:300;-webkit-box-ordinal-group:0;-webkit-order:0;order:0;width:54px}.rs-counter-value{font-weight:300;-webkit-box-ordinal-group:1;-webkit-order:1;order:1;text-align:right;width:35px}.rs-canvas{-webkit-box-ordinal-group:2;-webkit-order:2;order:2}@media (min-width:480px){.rs-base{left:20px;top:20px}}"; (require("browserify-css").createStyle(css, { "href": "src/style/rStats.css"})); module.exports = css;
-},{"browserify-css":1}],112:[function(require,module,exports){
+},{"browserify-css":1}],109:[function(require,module,exports){
 var constants = require('../constants/');
 var registerSystem = require('../core/system').registerSystem;
 
@@ -55632,7 +55083,7 @@ function removeDefaultCamera (sceneEl) {
   sceneEl.removeChild(defaultCamera);
 }
 
-},{"../constants/":48,"../core/system":67}],113:[function(require,module,exports){
+},{"../constants/":45,"../core/system":64}],110:[function(require,module,exports){
 var geometries = require('../core/geometry').geometries;
 var registerSystem = require('../core/system').registerSystem;
 
@@ -55754,7 +55205,7 @@ function incrementCacheCount (cacheCount, hash) {
   cacheCount[hash] = cacheCount[hash] === undefined ? 1 : cacheCount[hash] + 1;
 }
 
-},{"../core/geometry":57,"../core/system":67}],114:[function(require,module,exports){
+},{"../core/geometry":54,"../core/system":64}],111:[function(require,module,exports){
 var registerSystem = require('../core/system').registerSystem;
 var THREE = require('../lib/three');
 
@@ -55790,7 +55241,7 @@ module.exports.System = registerSystem('gltf-model', {
   }
 });
 
-},{"../core/system":67,"../lib/three":103}],115:[function(require,module,exports){
+},{"../core/system":64,"../lib/three":100}],112:[function(require,module,exports){
 require('./camera');
 require('./geometry');
 require('./gltf-model');
@@ -55799,7 +55250,7 @@ require('./material');
 require('./renderer');
 require('./shadow');
 
-},{"./camera":112,"./geometry":113,"./gltf-model":114,"./light":116,"./material":117,"./renderer":118,"./shadow":119}],116:[function(require,module,exports){
+},{"./camera":109,"./geometry":110,"./gltf-model":111,"./light":113,"./material":114,"./renderer":115,"./shadow":116}],113:[function(require,module,exports){
 var registerSystem = require('../core/system').registerSystem;
 var bind = require('../utils/bind');
 var constants = require('../constants/');
@@ -55885,7 +55336,7 @@ module.exports.System = registerSystem('light', {
   }
 });
 
-},{"../constants/":48,"../core/system":67,"../utils/bind":120}],117:[function(require,module,exports){
+},{"../constants/":45,"../core/system":64,"../utils/bind":117}],114:[function(require,module,exports){
 var registerSystem = require('../core/system').registerSystem;
 var THREE = require('../lib/three');
 var utils = require('../utils/');
@@ -56290,7 +55741,7 @@ function fixVideoAttributes (videoEl) {
   return videoEl;
 }
 
-},{"../core/system":67,"../lib/three":103,"../utils/":126,"../utils/material":129}],118:[function(require,module,exports){
+},{"../core/system":64,"../lib/three":100,"../utils/":123,"../utils/material":126}],115:[function(require,module,exports){
 var registerSystem = require('../core/system').registerSystem;
 var utils = require('../utils/');
 var THREE = require('../lib/three');
@@ -56354,7 +55805,7 @@ module.exports.System = registerSystem('renderer', {
   }
 });
 
-},{"../core/system":67,"../lib/three":103,"../utils/":126}],119:[function(require,module,exports){
+},{"../core/system":64,"../lib/three":100,"../utils/":123}],116:[function(require,module,exports){
 var registerSystem = require('../core/system').registerSystem;
 var THREE = require('../lib/three');
 
@@ -56409,7 +55860,7 @@ module.exports.System = registerSystem('shadow', {
   }
 });
 
-},{"../core/system":67,"../lib/three":103}],120:[function(require,module,exports){
+},{"../core/system":64,"../lib/three":100}],117:[function(require,module,exports){
 /**
  * Faster version of Function.prototype.bind
  * @param {Function} fn - Function to wrap.
@@ -56430,7 +55881,7 @@ module.exports = function bind (fn, ctx) {
   */
 };
 
-},{}],121:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 /* global THREE */
 var debug = require('./debug');
 var extend = require('object-assign');
@@ -56542,7 +55993,7 @@ module.exports.toVector3 = function (vec3) {
   return new THREE.Vector3(vec3.x, vec3.y, vec3.z);
 };
 
-},{"./debug":122,"object-assign":8}],122:[function(require,module,exports){
+},{"./debug":119,"object-assign":8}],119:[function(require,module,exports){
 (function (process){
 var debugLib = require('debug');
 var extend = require('object-assign');
@@ -56639,7 +56090,7 @@ module.exports = debug;
 
 }).call(this,require('_process'))
 
-},{"_process":2,"debug":3,"object-assign":8}],123:[function(require,module,exports){
+},{"_process":2,"debug":3,"object-assign":8}],120:[function(require,module,exports){
 (function (process){
 var error = require('debug')('device:error');
 
@@ -56845,7 +56296,7 @@ module.exports.isNodeEnvironment = !module.exports.isBrowserEnvironment;
 
 }).call(this,require('_process'))
 
-},{"_process":2,"debug":3}],124:[function(require,module,exports){
+},{"_process":2,"debug":3}],121:[function(require,module,exports){
 /**
  * Split a delimited component property string (e.g., `material.color`) to an object
  * containing `component` name and `property` name. If there is no delimiter, just return the
@@ -56907,7 +56358,7 @@ module.exports.setComponentProperty = function (el, name, value, delimiter) {
   el.setAttribute(name, value);
 };
 
-},{}],125:[function(require,module,exports){
+},{}],122:[function(require,module,exports){
 module.exports = function forceCanvasResizeSafariMobile (canvasEl) {
   var width = canvasEl.style.width;
   var height = canvasEl.style.height;
@@ -56923,7 +56374,7 @@ module.exports = function forceCanvasResizeSafariMobile (canvasEl) {
   }, 200);
 };
 
-},{}],126:[function(require,module,exports){
+},{}],123:[function(require,module,exports){
 /* global location */
 
 /* Centralized place to reference utilities since utils is exposed to the user. */
@@ -57253,7 +56704,7 @@ module.exports.findAllScenes = function (el) {
 // Must be at bottom to avoid circular dependency.
 module.exports.srcLoader = require('./src-loader');
 
-},{"./bind":120,"./coordinates":121,"./debug":122,"./device":123,"./entity":124,"./forceCanvasResizeSafariMobile":125,"./is-ie11":127,"./material":129,"./object-pool":130,"./split":131,"./src-loader":132,"./styleParser":133,"./tracked-controls":134,"deep-assign":5,"object-assign":8}],127:[function(require,module,exports){
+},{"./bind":117,"./coordinates":118,"./debug":119,"./device":120,"./entity":121,"./forceCanvasResizeSafariMobile":122,"./is-ie11":124,"./material":126,"./object-pool":127,"./split":128,"./src-loader":129,"./styleParser":130,"./tracked-controls":131,"deep-assign":5,"object-assign":8}],124:[function(require,module,exports){
 // https://stackoverflow.com/a/17907562
 function getInternetExplorerVersion () {
   var version = -1;
@@ -57271,7 +56722,7 @@ function getInternetExplorerVersion () {
 
 module.exports = getInternetExplorerVersion() === 11;
 
-},{}],128:[function(require,module,exports){
+},{}],125:[function(require,module,exports){
 /**
  * Check if device is iOS and older than version 10.
  */
@@ -57279,7 +56730,7 @@ module.exports = function isIOSOlderThan10 (userAgent) {
   return /(iphone|ipod|ipad).*os.(7_|8_|9_)/i.test(userAgent);
 };
 
-},{}],129:[function(require,module,exports){
+},{}],126:[function(require,module,exports){
 var THREE = require('../lib/three');
 
 var HLS_MIMETYPES = ['application/x-mpegurl', 'application/vnd.apple.mpegurl'];
@@ -57450,7 +56901,7 @@ module.exports.isHLS = function (src, type) {
   return false;
 };
 
-},{"../lib/three":103}],130:[function(require,module,exports){
+},{"../lib/three":100}],127:[function(require,module,exports){
 /*
   Adapted deePool by Kyle Simpson.
   MIT License: http://getify.mit-license.org
@@ -57541,7 +56992,7 @@ function removeUnusedKeys (obj, schema) {
 }
 module.exports.removeUnusedKeys = removeUnusedKeys;
 
-},{}],131:[function(require,module,exports){
+},{}],128:[function(require,module,exports){
 /**
  * String split with cached result.
  */
@@ -57558,7 +57009,7 @@ module.exports.split = (function () {
   };
 })();
 
-},{}],132:[function(require,module,exports){
+},{}],129:[function(require,module,exports){
 /* global Image, XMLHttpRequest */
 var debug = require('./debug');
 
@@ -57717,7 +57168,7 @@ module.exports = {
   validateCubemapSrc: validateCubemapSrc
 };
 
-},{"./debug":122}],133:[function(require,module,exports){
+},{"./debug":119}],130:[function(require,module,exports){
 /**
  * Utils for parsing style-like strings (e.g., "primitive: box; width: 5; height: 4.5").
  * Some code adapted from `style-attr` (https://github.com/joshwnj/style-attr)
@@ -57870,7 +57321,7 @@ function styleStringify (obj) {
 
 function upperCase (str) { return str[1].toUpperCase(); }
 
-},{}],134:[function(require,module,exports){
+},{}],131:[function(require,module,exports){
 var DEFAULT_HANDEDNESS = require('../constants').DEFAULT_HANDEDNESS;
 var AXIS_LABELS = ['x', 'y', 'z', 'w'];
 var NUM_HANDS = 2;  // Number of hands in a pair. Should always be 2.
@@ -58109,7 +57560,7 @@ module.exports.onButtonEvent = function (id, evtName, component, hand) {
   }
 };
 
-},{"../constants":48}],135:[function(require,module,exports){
+},{"../constants":45}],132:[function(require,module,exports){
 window.glStats = function () {
 
     var _rS = null;
@@ -58370,7 +57821,7 @@ if (typeof module === 'object') {
   };
 }
 
-},{}],136:[function(require,module,exports){
+},{}],133:[function(require,module,exports){
 // performance.now() polyfill from https://gist.github.com/paulirish/5438650
 'use strict';
 
@@ -58825,7 +58276,7 @@ if (typeof module === 'object') {
   module.exports = window.rStats;
 }
 
-},{}],137:[function(require,module,exports){
+},{}],134:[function(require,module,exports){
 /*
  * Copyright 2015 Google Inc. All Rights Reserved.
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -58887,7 +58338,7 @@ Util.isLandscapeMode = function() {
 
 module.exports = Util;
 
-},{}],138:[function(require,module,exports){
+},{}],135:[function(require,module,exports){
 /*
  * Copyright 2015 Google Inc. All Rights Reserved.
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -58963,6 +58414,6 @@ function getWakeLock() {
 
 module.exports = getWakeLock();
 
-},{"./util.js":137}]},{},[101])(101)
+},{"./util.js":134}]},{},[98])(98)
 });
 //# sourceMappingURL=aframe-master.js.map

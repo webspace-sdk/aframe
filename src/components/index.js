@@ -1,17 +1,27 @@
+var registerComponent = require('../core/component').registerComponent;
+
+function stubComponent (name) {
+  registerComponent(name, {
+    init () {
+      console.warn(`The ${name} aframe component no longer exists.`);
+    }
+  });
+}
+
 require('./animation');
 require('./camera');
 require('./cursor');
 require('./geometry');
 require('./generic-tracked-controller-controls');
-require('./gltf-model');
-require('./hand-controls');
+stubComponent('./gltf-model');
+stubComponent('./hand-controls');
 require('./laser-controls');
 require('./light');
 require('./line');
 require('./link');
 require('./look-controls');
 require('./material');
-require('./obj-model');
+stubComponent('./obj-model');
 require('./position');
 require('./raycaster');
 require('./rotation');
