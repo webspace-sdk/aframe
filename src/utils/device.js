@@ -42,7 +42,7 @@ if (isWebXRAvailable) {
   var updateEnterInterfaces = function () {
     var sceneEl = window.AFRAME.selectorRoot.querySelector('a-scene');
     if (!sceneEl) {
-      window.addEventListener('DOMContentLoaded', updateEnterInterfaces);
+      setTimeout(updateEnterInterfaces, 250);
       return;
     }
     if (sceneEl.hasLoaded && sceneEl.components['vr-mode-ui']) {
