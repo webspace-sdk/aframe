@@ -40,7 +40,7 @@ window.addEventListener('vrdisplayactivate', function (evt) {
 // Support both WebVR and WebXR APIs.
 if (isWebXRAvailable) {
   var updateEnterInterfaces = function () {
-    var sceneEl = document.querySelector('a-scene');
+    var sceneEl = window.AFRAME.selectorRoot.querySelector('a-scene');
     if (!sceneEl) {
       window.addEventListener('DOMContentLoaded', updateEnterInterfaces);
       return;
@@ -83,7 +83,7 @@ if (isWebXRAvailable) {
 } else {
   if (navigator.getVRDisplays) {
     navigator.getVRDisplays().then(function (displays) {
-      var sceneEl = document.querySelector('a-scene');
+      var sceneEl = window.AFRAME.selectorRoot.querySelector('a-scene');
       vrDisplay = displays.length && displays[0];
       if (sceneEl) { sceneEl.emit('displayconnected', {vrDisplay: vrDisplay}); }
     });
